@@ -106,7 +106,7 @@ def main():
     try:
         while True:
             metrics = get_system_metrics()
-            os.makedirs("/home/{USERNAME}/Desktop/systemlogs/", exist_ok=True)
+            os.makedirs(f"/home/{USERNAME}/Desktop/systemlogs/", exist_ok=True)
             filename = f"/home/{USERNAME}/Desktop/systemlogs/system_metrics_{datetime.now().strftime('%Y-%m-%d')}.csv"
             save_to_csv(metrics, filename)
             print(f"Metrics recorded at {metrics['timestamp']}")
