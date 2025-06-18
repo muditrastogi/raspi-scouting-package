@@ -14,11 +14,14 @@ from datetime import datetime
 import csv
 import argparse
 import getpass
-import requests
 global USERNAME
 recording_active = False
 
 USERNAME = getpass.getuser()
+
+
+# AWS Credentials
+
 
 # Raspberry Pi IPs
 # raspberrypi1 = "192.168.1.10"
@@ -69,8 +72,12 @@ class CameraViewer:
         self.root.grid_rowconfigure(3, weight=1)
         self.last_saved_grid = None
 
-
-
+        # Initialize S3 client
+        self.s3_client = boto3.client(
+            's3',
+            aws_access_key_id=AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=AWS_SECRET_ACCESS_KEY
+        )
 
         # Camera streams configuration
         # self.cameras: Dict[str, dict] = {
@@ -95,14 +102,10 @@ class CameraViewer:
             "Camera 3": False
         }
 
-        # Initialize grid prefix and suffix data
-        self.grid_prefixes = ["A", "B"]  # Can be extended for more prefixes
-        self.grid_suffixes = []  # Will be populated based on greenhouse
-        self.current_prefix_index = 0
-        self.current_suffix_index = 0
-        
-        # Initialize cycle data
+        # Initialize grid and cycle data
+        self.grid_values = []
         self.cycle_values = []
+        self.current_grid_index = 0
         self.current_cycle_index = 0
 
         # Create style for buttons
@@ -155,37 +158,22 @@ class CameraViewer:
                                                 style='TButton')
         self.reset_greenhouse_button.pack()
 
-        # Create Grid Prefix Section
-        prefix_frame = ttk.Frame(dropdown_frame)
-        prefix_frame.grid(row=0, column=3, padx=5, pady=5)
-        ttk.Label(prefix_frame, text="Grid Prefix").pack()
-        self.prefix_label = ttk.Label(prefix_frame, text="--")
-        self.prefix_label.pack()
-        self.prefix_button = ttk.Button(prefix_frame, text="Next Prefix",
-                                command=self.next_prefix,
+        # Create Grid and Cycle frames with labels and buttons
+        # Grid Section
+        grid_frame = ttk.Frame(dropdown_frame)
+        grid_frame.grid(row=0, column=4, padx=5, pady=5)
+        ttk.Label(grid_frame, text="Grid").pack()
+        self.grid_label = ttk.Label(grid_frame, text="--")
+        self.grid_label.pack()
+        self.grid_button = ttk.Button(grid_frame, text="Select Grid",
+                                command=self.next_grid,
                                 style='TButton')
-        self.prefix_button.pack()
+        self.grid_button.pack()
 
-        self.reset_prefix_button = ttk.Button(prefix_frame, text="Reset Prefix",
-                                command=self.reset_prefix,
+        self.reset_grid_button = ttk.Button(grid_frame, text="Reset Grid",
+                                command=self.reset_grid,
                                 style='TButton')
-        self.reset_prefix_button.pack()
-
-        # Create Grid Suffix Section
-        suffix_frame = ttk.Frame(dropdown_frame)
-        suffix_frame.grid(row=0, column=4, padx=5, pady=5)
-        ttk.Label(suffix_frame, text="Grid Suffix").pack()
-        self.suffix_label = ttk.Label(suffix_frame, text="--")
-        self.suffix_label.pack()
-        self.suffix_button = ttk.Button(suffix_frame, text="Next Suffix",
-                                command=self.next_suffix,
-                                style='TButton')
-        self.suffix_button.pack()
-
-        self.reset_suffix_button = ttk.Button(suffix_frame, text="Back Suffix",
-                                command=self.reset_suffix,
-                                style='TButton')
-        self.reset_suffix_button.pack()
+        self.reset_grid_button.pack()
 
         # Cycle Section
         cycle_frame = ttk.Frame(dropdown_frame)
@@ -214,17 +202,8 @@ class CameraViewer:
         # Initial population of greenhouse data
         self.fetch_and_populate_greenhouse_data()
 
-    def get_current_grid_value(self):
-        """Get the current combined grid value (prefix + suffix)"""
-        if (self.prefix_label.cget("text") == "--" or 
-            self.suffix_label.cget("text") == "--" or
-            self.prefix_label.cget("text") == "No prefixes available" or
-            self.suffix_label.cget("text") == "No suffixes available"):
-            return "Start"
-        
-        return f"{self.prefix_label.cget('text')}-{self.suffix_label.cget('text')}"
-
     def update_metadata_csv(self, grid_value):
+
         """Update metadata CSV whenever grid value changes"""
         try:
             current_cycle = self.cycle_label.cget("text")
@@ -238,6 +217,8 @@ class CameraViewer:
                 return
 
             # Create directory structure
+
+
             # Create base directory for all cameras
             current_datetime = datetime.now().strftime("%Y-%m-%d")
             for camera_name in self.cameras.keys():
@@ -256,6 +237,8 @@ class CameraViewer:
                     os.makedirs(recording_path)
 
                 csv_file = os.path.join(recording_path, "metadata.csv")
+
+
 
                 # Create or append to CSV file
                 file_exists = os.path.exists(csv_file)
@@ -279,83 +262,25 @@ class CameraViewer:
             import traceback
             traceback.print_exc()
 
-    def next_prefix(self):
-        """Handle prefix selection (A, B, etc.)"""
-        if not self.grid_prefixes:
-            self.prefix_label.config(text="No prefixes available")
-            self.prefix_button.state(['disabled'])
+    def next_grid(self):
+        if not self.grid_values:
+            self.grid_label.config(text="No grids available")
+            self.grid_button.state(['disabled'])
             return
 
-        self.current_prefix_index = (self.current_prefix_index + 1) % len(self.grid_prefixes)
-        new_prefix = self.grid_prefixes[self.current_prefix_index]
-        self.prefix_label.config(text=new_prefix)
-        self.prefix_button.state(['!disabled'])
-        self.prefix_button.configure(style='Active.TButton')
+        self.current_grid_index = (self.current_grid_index + 1) % len(self.grid_values)
+        new_grid_value = self.grid_values[self.current_grid_index]
+        self.grid_label.config(text=new_grid_value)
+        self.grid_button.state(['!disabled'])
+        self.grid_button.configure(style='Active.TButton')
 
         # Update metadata when grid changes
-        new_grid_value = self.get_current_grid_value()
         if new_grid_value != self.last_saved_grid:
             self.update_metadata_csv(new_grid_value)
             if recording_active:
                 self.record_grid(new_grid_value)
 
-    def reset_prefix(self):
-        """Reset prefix to first value"""
-        if not self.grid_prefixes:
-            self.prefix_label.config(text="No prefixes available")
-            self.prefix_button.state(['disabled'])
-            return
-
-        self.current_prefix_index = 0
-        new_prefix = self.grid_prefixes[self.current_prefix_index]
-        self.prefix_label.config(text=new_prefix)
-        self.prefix_button.state(['!disabled'])
-        self.prefix_button.configure(style='Active.TButton')
-
-        # Update metadata when grid changes
-        new_grid_value = self.get_current_grid_value()
-        if new_grid_value != self.last_saved_grid:
-            self.update_metadata_csv(new_grid_value)
-
-    def next_suffix(self):
-        """Handle suffix selection with smart iteration (2-B, 3-A, 3-B, 4-A, 4-B, etc.)"""
-        if not self.grid_suffixes:
-            self.suffix_label.config(text="No suffixes available")
-            self.suffix_button.state(['disabled'])
-            return
-
-        self.current_suffix_index = (self.current_suffix_index + 1) % len(self.grid_suffixes)
-        new_suffix = self.grid_suffixes[self.current_suffix_index]
-        self.suffix_label.config(text=new_suffix)
-        self.suffix_button.state(['!disabled'])
-        self.suffix_button.configure(style='Active.TButton')
-
-        # Update metadata when grid changes
-        new_grid_value = self.get_current_grid_value()
-        if new_grid_value != self.last_saved_grid:
-            self.update_metadata_csv(new_grid_value)
-            if recording_active:
-                self.record_grid(new_grid_value)
-
-    def reset_suffix(self):
-        """Go back one suffix"""
-        if not self.grid_suffixes:
-            self.suffix_label.config(text="No suffixes available")
-            self.suffix_button.state(['disabled'])
-            return
-
-        self.current_suffix_index = (self.current_suffix_index - 1) % len(self.grid_suffixes)
-        new_suffix = self.grid_suffixes[self.current_suffix_index]
-        self.suffix_label.config(text=new_suffix)
-        self.suffix_button.state(['!disabled'])
-        self.suffix_button.configure(style='Active.TButton')
-
-        # Update metadata when grid changes
-        new_grid_value = self.get_current_grid_value()
-        if new_grid_value != self.last_saved_grid:
-            self.update_metadata_csv(new_grid_value)
-
-    def record_grid(self, grid_value, from_record_button=False):
+    def record_grid(self, grid_value,from_record_button=False):
         #stop
         global recording_active
         if recording_active:
@@ -383,6 +308,22 @@ class CameraViewer:
                         recording_active = True
                 else:
                     print(f"Failed to start recording for {grid_value}: {start_record.status_code}")
+
+    def reset_grid(self):
+        if not self.grid_values:
+            self.grid_label.config(text="No grids available")
+            self.grid_button.state(['disabled'])
+            return
+
+        self.current_grid_index = (self.current_grid_index - 1) % len(self.grid_values)
+        new_grid_value = self.grid_values[self.current_grid_index]
+        self.grid_label.config(text=new_grid_value)
+        self.grid_button.state(['!disabled'])
+        self.grid_button.configure(style='Active.TButton')
+
+        # Update metadata when grid changes
+        if new_grid_value != self.last_saved_grid:
+            self.update_metadata_csv(new_grid_value)
 
     def next_cycle(self):
         if not self.cycle_values:
@@ -412,6 +353,10 @@ class CameraViewer:
 
     def fetch_and_populate_greenhouse_data(self):
         try:
+
+
+ 
+
             #self.greenhouse_values = list(json_data.keys())
             self.greenhouse_values = ['unit4_parta_s1','unit1_greenhouse1']
             print(self.greenhouse_values)
@@ -490,50 +435,59 @@ class CameraViewer:
     def fetch_and_populate_grid_data(self):
         try:
             greenhouse_name = self.greenhouse_label.cget("text")  # Changed from dropdown to label
+            # file_path = os.path.join(f"./nutrifresh/farm1/{greenhouse_name}/grids.json")
 
-            # Generate grid suffixes based on greenhouse
+            # my_file = Path(file_path)
+            # if not my_file.exists():
+            #     directory = os.path.dirname(file_path)
+            #     if not os.path.exists(directory):
+            #         os.makedirs(directory)
+
+            #     response = self.s3_client.get_object(
+            #         Bucket='grai-image',
+            #         Key=f'nutrifresh/farm1/{greenhouse_name}/grids.json'
+            #     )
+            #     data = response['Body'].read().decode('utf-8')
+            #     json_data = json.loads(data)
+
+            #     with open(file_path, 'w') as json_file:
+            #         json.dump(json_data, json_file, indent=4)
+            # else:
+            #     with open(file_path, 'r') as json_file:
+            #         json_data = json.load(json_file)
+
+            # grid_labels = []
+            # for sublist in json_data:
+            #     for item in sublist:
+            #         grid_labels.append(item['label'])
+
+            # grid_labels = [item for item in grid_labels if item]
+            # # grid_labels = [f"{item}-A" for item in grid_labels] + [f"{item}-B" for item in grid_labels]
+            # grid_labels = sorted(grid_labels, key=lambda x: (x[0], int(x[1:].replace('-', ''))))
+
+            # grid_labels = [f"{item}-{suffix}" for item in grid_labels for suffix in ['A', 'B']]
             if greenhouse_name == "unit1_greenhouse1":
-                # Generate suffixes: 1-A, 1-B, 2-A, 2-B, ..., 50-A, 50-B
-                grid_suffixes = []
-                for i in range(1, 51):  # 1 to 50
-                    grid_suffixes.extend([f"{i}-A", f"{i}-B"])
+                grid_labels = ['A-1-A', 'A-1-B', 'A-2-A', 'A-2-B', 'A-3-A', 'A-3-B', 'A-4-A', 'A-4-B', 'A-5-A', 'A-5-B', 'A-6-A', 'A-6-B', 'A-7-A', 'A-7-B', 'A-8-A', 'A-8-B', 'A-9-A', 'A-9-B', 'A-10-A', 'A-10-B', 'A-11-A', 'A-11-B', 'A-12-A', 'A-12-B', 'A-13-A', 'A-13-B', 'A-14-A', 'A-14-B', 'A-15-A', 'A-15-B', 'A-16-A', 'A-16-B', 'A-17-A', 'A-17-B', 'A-18-A', 'A-18-B', 'A-19-A', 'A-19-B', 'A-20-A', 'A-20-B', 'A-21-A', 'A-21-B', 'A-22-A', 'A-22-B', 'A-23-A', 'A-23-B', 'A-24-A', 'A-24-B', 'A-25-A', 'A-25-B', 'A-26-A', 'A-26-B', 'A-27-A', 'A-27-B', 'A-28-A', 'A-28-B', 'A-29-A', 'A-29-B', 'A-30-A', 'A-30-B', 'A-31-A', 'A-31-B', 'A-32-A', 'A-32-B', 'A-33-A', 'A-33-B', 'A-34-A', 'A-34-B', 'A-35-A', 'A-35-B', 'A-36-A', 'A-36-B', 'A-37-A', 'A-37-B', 'A-38-A', 'A-38-B', 'A-39-A', 'A-39-B', 'A-40-A', 'A-40-B', 'A-41-A', 'A-41-B', 'A-42-A', 'A-42-B', 'A-43-A', 'A-43-B', 'A-44-A', 'A-44-B', 'A-45-A', 'A-45-B', 'A-46-A', 'A-46-B', 'A-47-A', 'A-47-B', 'A-48-A', 'A-48-B', 'A-49-A', 'A-49-B', 'A-50-A', 'A-50-B', 'B-1-A', 'B-1-B', 'B-2-A', 'B-2-B', 'B-3-A', 'B-3-B', 'B-4-A', 'B-4-B', 'B-5-A', 'B-5-B', 'B-6-A', 'B-6-B', 'B-7-A', 'B-7-B', 'B-8-A', 'B-8-B', 'B-9-A', 'B-9-B', 'B-10-A', 'B-10-B', 'B-11-A', 'B-11-B', 'B-12-A', 'B-12-B', 'B-13-A', 'B-13-B', 'B-14-A', 'B-14-B', 'B-15-A', 'B-15-B', 'B-16-A', 'B-16-B', 'B-17-A', 'B-17-B', 'B-18-A', 'B-18-B', 'B-19-A', 'B-19-B', 'B-20-A', 'B-20-B', 'B-21-A', 'B-21-B', 'B-22-A', 'B-22-B', 'B-23-A', 'B-23-B', 'B-24-A', 'B-24-B', 'B-25-A', 'B-25-B', 'B-26-A', 'B-26-B', 'B-27-A', 'B-27-B', 'B-28-A', 'B-28-B', 'B-29-A', 'B-29-B', 'B-30-A', 'B-30-B', 'B-31-A', 'B-31-B', 'B-32-A', 'B-32-B', 'B-33-A', 'B-33-B', 'B-34-A', 'B-34-B', 'B-35-A', 'B-35-B', 'B-36-A', 'B-36-B', 'B-37-A', 'B-37-B', 'B-38-A', 'B-38-B', 'B-39-A', 'B-39-B', 'B-40-A', 'B-40-B', 'B-41-A', 'B-41-B', 'B-42-A', 'B-42-B', 'B-43-A', 'B-43-B', 'B-44-A', 'B-44-B', 'B-45-A', 'B-45-B', 'B-46-A', 'B-46-B', 'B-47-A', 'B-47-B', 'B-48-A', 'B-48-B', 'B-49-A', 'B-49-B', 'B-50-A', 'B-50-B']
             elif greenhouse_name == "unit4_parta_s1":
-                # Generate suffixes: 1-A, 1-B, 2-A, 2-B, ..., 52-A, 52-B
-                grid_suffixes = []
-                for i in range(1, 53):  # 1 to 52
-                    grid_suffixes.extend([f"{i}-A", f"{i}-B"])
+                grid_labels = ['A-1-A', 'A-1-B', 'A-2-A', 'A-2-B', 'A-3-A', 'A-3-B', 'A-4-A', 'A-4-B', 'A-5-A', 'A-5-B', 'A-6-A', 'A-6-B', 'A-7-A', 'A-7-B', 'A-8-A', 'A-8-B', 'A-9-A', 'A-9-B', 'A-10-A', 'A-10-B', 'A-11-A', 'A-11-B', 'A-12-A', 'A-12-B', 'A-13-A', 'A-13-B', 'A-14-A', 'A-14-B', 'A-15-A', 'A-15-B', 'A-16-A', 'A-16-B', 'A-17-A', 'A-17-B', 'A-18-A', 'A-18-B', 'A-19-A', 'A-19-B', 'A-20-A', 'A-20-B', 'A-21-A', 'A-21-B', 'A-22-A', 'A-22-B', 'A-23-A', 'A-23-B', 'A-24-A', 'A-24-B', 'A-25-A', 'A-25-B', 'A-26-A', 'A-26-B', 'A-27-A', 'A-27-B', 'A-28-A', 'A-28-B', 'A-29-A', 'A-29-B', 'A-30-A', 'A-30-B', 'A-31-A', 'A-31-B', 'A-32-A', 'A-32-B', 'A-33-A', 'A-33-B', 'A-34-A', 'A-34-B', 'A-35-A', 'A-35-B', 'A-36-A', 'A-36-B', 'A-37-A', 'A-37-B', 'A-38-A', 'A-38-B', 'A-39-A', 'A-39-B', 'A-40-A', 'A-40-B', 'A-41-A', 'A-41-B', 'A-42-A', 'A-42-B', 'A-43-A', 'A-43-B', 'A-44-A', 'A-44-B', 'A-45-A', 'A-45-B', 'A-46-A', 'A-46-B', 'A-47-A', 'A-47-B', 'A-48-A', 'A-48-B', 'A-49-A', 'A-49-B', 'A-50-A', 'A-50-B', 'A-51-A', 'A-51-B', 'A-52-A', 'A-52-B']
+            grid_labels.insert(0,"Start")
+            print (grid_labels)
+
+            self.grid_values = grid_labels
+            self.current_grid_index = 0
+
+            if self.grid_values:
+                self.grid_label.config(text=self.grid_values[0])
+                self.grid_button.state(['!disabled'])
             else:
-                grid_suffixes = []
-
-            # Add "Start" at the beginning
-            grid_suffixes.insert(0, "Start")
-            
-            print("Grid suffixes:", grid_suffixes)
-
-            self.grid_suffixes = grid_suffixes
-            self.current_suffix_index = 0
-
-            # Initialize prefix and suffix labels
-            if self.grid_prefixes:
-                self.prefix_label.config(text=self.grid_prefixes[0])
-                self.prefix_button.state(['!disabled'])
-            else:
-                self.prefix_label.config(text="No prefixes available")
-                self.prefix_button.state(['disabled'])
-
-            if self.grid_suffixes:
-                self.suffix_label.config(text=self.grid_suffixes[0])
-                self.suffix_button.state(['!disabled'])
-            else:
-                self.suffix_label.config(text="No suffixes available")
-                self.suffix_button.state(['disabled'])
+                self.grid_label.config(text="No grids available")
+                self.grid_button.state(['disabled'])
 
         except Exception as e:
             print(f"Error fetching grid data: {e}")
-            self.prefix_label.config(text="Error loading prefixes")
-            self.suffix_label.config(text="Error loading suffixes")
-            self.prefix_button.state(['disabled'])
-            self.suffix_button.state(['disabled'])
+            self.grid_label.config(text="Error loading grids")
+            self.grid_button.state(['disabled'])
+
 
     def setup_camera_frame(self):
         # Create video frames
@@ -589,6 +543,7 @@ class CameraViewer:
         except Exception as e:
             print(f"Error getting frame: {e}")
         return None
+
 
     def update_stream(self, camera_name: str):
         camera_info = self.cameras[camera_name]
@@ -649,7 +604,7 @@ class CameraViewer:
             try:
                 # Get the current cycle value from the label instead of dropdown
                 current_cycle = self.cycle_label.cget("text")
-                current_grid = self.get_current_grid_value()
+                current_grid = self.grid_label.cget("text")
 
                 # Check if we have valid values
                 if current_cycle == "--" or current_cycle == "No cycles available":
@@ -689,6 +644,7 @@ class CameraViewer:
                 import traceback
                 print(traceback.print_exc())
                 print(f"Error starting recording for {camera_name}: {e}")
+
 
     def stop_recording(self, camera_name: str,start: int):
         camera_info = self.cameras[camera_name]
