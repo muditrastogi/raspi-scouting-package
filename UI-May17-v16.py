@@ -72,12 +72,7 @@ class CameraViewer:
         self.root.grid_rowconfigure(3, weight=1)
         self.last_saved_grid = None
 
-        # Initialize S3 client
-        self.s3_client = boto3.client(
-            's3',
-            aws_access_key_id=AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=AWS_SECRET_ACCESS_KEY
-        )
+   
 
         # Camera streams configuration
         # self.cameras: Dict[str, dict] = {
