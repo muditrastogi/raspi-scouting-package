@@ -368,12 +368,12 @@ for camera_dev in "${PLAYABLE_DEVICES[@]}"; do
         sleep 5
         
         if check_rtsp_stream $current_rtsp_port; then
-            RTSP_SERVERS+=("localhost:${current_rtsp_port}/unicast")
+            RTSP_SERVERS+=("rtsp://localhost:${current_rtsp_port}/unicast")
             success_msg "Device $camera_dev successfully initialized on port $current_rtsp_port"
         else
             warning_msg "RTSP stream not available on port $current_rtsp_port"
             # Still add it to array in case it works later
-            RTSP_SERVERS+=("localhost:$current_rtsp_port")
+            RTSP_SERVERS+=("rtsp://localhost:$current_rtsp_port")
         fi
     else
         show_error "Failed to start RTSP server for $camera_dev after all retry attempts"
@@ -393,7 +393,7 @@ rtsp_port=$RTSP_BASE_PORT
 
 for i in "${!RTSP_SERVERS[@]}"; do
     if start_record_api $rtsp_port $current_api_port; then
-        RECORD_APIS+=("localhost:$current_api_port")
+        RECORD_APIS+=("http://localhost:$current_api_port")
         success_msg "Record API ready on port $current_api_port"
     else
         warning_msg "Failed to start record API on port $current_api_port after all retry attempts"
