@@ -31,7 +31,7 @@ class RTSPStream:
 
             print(f"Starting recording with counter: {counter}, grid: {grid_name}")
 
-            save_dir = f"/home/{USERNAME}/Desktop/scout-videos/recordings_{CURRENT_DATE}/"
+            save_dir = f"/home/{USERNAME}/Desktop/scout-videos/recordings_{CURRENT_DATE}/{grid_name}-{POSITION}/"
             os.makedirs(save_dir, exist_ok=True)
 
             start_time = datetime.now()
