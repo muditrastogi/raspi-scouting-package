@@ -21,56 +21,116 @@ class RTSPStream:
     def __init__(self, rtsp_url="rtsp://192.168.1.20:8554/", resolution=(REC_WIDTH, REC_HEIGHT)):
         self.rtsp_url = rtsp_url
         self.resolution = resolution
-        self.is_recording = False
-        self.process = None
-        self.recording_thread = None
+        self.active_recordings = {}  # Dictionary to track recordings by grid_name
+        self.recording_lock = threading.Lock()
 
     def start_recording(self, counter, grid_name):
-        if self.is_recording:
-            return "Already recording"
+        with self.recording_lock:
+            if grid_name in self.active_recordings:
+                return f"Grid {grid_name} is already recording"
 
-        print(f"Starting recording with counter: {counter}, {grid_name}")
+            print(f"Starting recording with counter: {counter}, grid: {grid_name}")
 
-        save_dir = f"/home/{USERNAME}/Desktop/scout-videos/recordings_{CURRENT_DATE}/"
-        os.makedirs(save_dir, exist_ok=True)
+            save_dir = f"/home/{USERNAME}/Desktop/scout-videos/recordings_{CURRENT_DATE}/"
+            os.makedirs(save_dir, exist_ok=True)
 
-        start_time = datetime.now()
-        filename = (
-            f"ABC_GRID_{grid_name}_{counter}_recording_"
-            f"{start_time.strftime('%Y%m%d_%H%M%S')}_{POSITION}.mp4"
-        )
-        output_path = os.path.join(save_dir, filename)
+            start_time = datetime.now()
+            filename = (
+                f"ABC_GRID_{grid_name}_{counter}_recording_"
+                f"{start_time.strftime('%Y%m%d_%H%M%S')}_{POSITION}.mp4"
+            )
+            output_path = os.path.join(save_dir, filename)
 
-        def record():
-            print(f"Recording started: {output_path}")
-            self.process = subprocess.Popen([
-                'ffmpeg',
-                '-i', self.rtsp_url,
-                '-c', 'copy',
-                '-f', 'mp4',
-                output_path
-            ], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+            def record():
+                print(f"Recording started: {output_path}")
+                process = subprocess.Popen([
+                    'ffmpeg',
+                    '-i', self.rtsp_url,
+                    '-c', 'copy',
+                    '-f', 'mp4',
+                    output_path
+                ], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
 
-            self.process.wait()
-            print(f"Recording process ended: {output_path}")
+                # Store the process in the recording info
+                with self.recording_lock:
+                    if grid_name in self.active_recordings:
+                        self.active_recordings[grid_name]['process'] = process
 
-        self.recording_thread = threading.Thread(target=record, daemon=True)
-        self.recording_thread.start()
+                process.wait()
+                print(f"Recording process ended: {output_path}")
+                
+                # Clean up the recording entry when process ends
+                with self.recording_lock:
+                    if grid_name in self.active_recordings:
+                        del self.active_recordings[grid_name]
 
-        self.is_recording = True
-        return f"Started recording to {output_path}"
+            recording_thread = threading.Thread(target=record, daemon=True)
+            
+            # Store recording information
+            self.active_recordings[grid_name] = {
+                'thread': recording_thread,
+                'process': None,  # Will be set by the recording thread
+                'output_path': output_path,
+                'start_time': start_time
+            }
+            
+            recording_thread.start()
 
-    def stop_recording(self):
-        if not self.is_recording:
-            return "Not recording"
+            return f"Started recording grid {grid_name} to {output_path}"
 
-        print("Stopping recording")
-        if self.process:
-            self.process.terminate()
-            self.process = None
+    def stop_recording(self, grid_name=None):
+        with self.recording_lock:
+            if grid_name is None:
+                # Stop all recordings if no grid specified
+                if not self.active_recordings:
+                    return "No recordings are active"
+                
+                stopped_grids = []
+                for grid in list(self.active_recordings.keys()):
+                    result = self._stop_single_recording(grid)
+                    stopped_grids.append(grid)
+                
+                return f"Stopped recording for grids: {', '.join(stopped_grids)}"
+            else:
+                # Stop specific grid recording
+                if grid_name not in self.active_recordings:
+                    return f"Grid {grid_name} is not currently recording"
+                
+                return self._stop_single_recording(grid_name)
 
-        self.is_recording = False
-        return "Recording stopped"
+    def _stop_single_recording(self, grid_name):
+        """Helper method to stop a single recording"""
+        if grid_name not in self.active_recordings:
+            return f"Grid {grid_name} is not recording"
+
+        recording_info = self.active_recordings[grid_name]
+        process = recording_info.get('process')
+        
+        print(f"Stopping recording for grid: {grid_name}")
+        if process:
+            process.terminate()
+            try:
+                process.wait(timeout=5)  # Wait up to 5 seconds for graceful termination
+            except subprocess.TimeoutExpired:
+                process.kill()  # Force kill if it doesn't terminate gracefully
+        
+        # Remove from active recordings
+        del self.active_recordings[grid_name]
+        
+        return f"Recording stopped for grid {grid_name}"
+
+    def get_recording_status(self):
+        """Get status of all active recordings"""
+        with self.recording_lock:
+            if not self.active_recordings:
+                return "No active recordings"
+            
+            status_lines = []
+            for grid_name, info in self.active_recordings.items():
+                duration = datetime.now() - info['start_time']
+                status_lines.append(f"Grid {grid_name}: Recording for {duration}")
+            
+            return "\n".join(status_lines)
 
 
 # Initialize Flask app
@@ -90,6 +150,7 @@ def index():
             .status { margin: 20px; padding: 20px; background-color: #f0f0f0; border-radius: 5px; }
             .controls { margin: 20px 0; }
             button { padding: 10px 20px; margin: 0 10px; font-size: 16px; cursor: pointer; }
+            input { padding: 8px; margin: 5px; }
         </style>
     </head>
     <body>
@@ -99,24 +160,50 @@ def index():
             <p>Recording Status: <span id="status">Not recording</span></p>
         </div>
         <div class="controls">
+            <input type="text" id="gridName" placeholder="Grid Name (e.g., A1)" value="A1">
+            <br><br>
             <button onclick="startRecording()">Start Recording</button>
-            <button onclick="stopRecording()">Stop Recording</button>
+            <button onclick="stopRecording()">Stop Recording (Specific Grid)</button>
+            <button onclick="stopAllRecordings()">Stop All Recordings</button>
+            <button onclick="getStatus()">Get Status</button>
         </div>
         <script>
             function startRecording() {
-                fetch('/record/start?counter=manual_' + Date.now())
+                const gridName = document.getElementById('gridName').value || 'default';
+                fetch('/record/start?counter=manual_' + Date.now() + '&grid_name=' + gridName)
                     .then(response => response.text())
                     .then(data => {
                         document.getElementById('status').textContent = 'Recording';
                         console.log(data);
+                        alert(data);
                     });
             }
 
             function stopRecording() {
+                const gridName = document.getElementById('gridName').value || 'default';
+                fetch('/record/stop?grid_name=' + gridName)
+                    .then(response => response.text())
+                    .then(data => {
+                        console.log(data);
+                        alert(data);
+                    });
+            }
+
+            function stopAllRecordings() {
                 fetch('/record/stop')
                     .then(response => response.text())
                     .then(data => {
                         document.getElementById('status').textContent = 'Not recording';
+                        console.log(data);
+                        alert(data);
+                    });
+            }
+
+            function getStatus() {
+                fetch('/status')
+                    .then(response => response.text())
+                    .then(data => {
+                        document.getElementById('status').textContent = data;
                         console.log(data);
                     });
             }
@@ -128,8 +215,9 @@ def index():
 
 @app.route('/record/stop')
 def stop():
-    """Stop recording endpoint"""
-    return rtsp_stream.stop_recording()
+    """Stop recording endpoint - can stop specific grid or all recordings"""
+    grid_name = request.args.get('grid_name')
+    return rtsp_stream.stop_recording(grid_name)
 
 
 @app.route('/record/start')
@@ -139,6 +227,12 @@ def record():
     grid_name = request.args.get('grid_name', 'default')
     counter = counter.replace(":", "-")  # Sanitize counter value
     return rtsp_stream.start_recording(counter, grid_name)
+
+
+@app.route('/status')
+def status():
+    """Get recording status endpoint"""
+    return rtsp_stream.get_recording_status()
 
 
 def main():
@@ -166,7 +260,7 @@ def main():
         app.run(host='0.0.0.0', port=args.port, threaded=True)
     finally:
         if rtsp_stream:
-            rtsp_stream.stop_recording()
+            rtsp_stream.stop_recording()  # This will stop all recordings
 
 
 if __name__ == '__main__':
