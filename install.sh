@@ -152,13 +152,14 @@ main() {
     show_progress "Verifying required files..."
     
     required_files=(
-        "UI-May17-v16.py"
+        "frames/UI-May17-v16.py"
+        "frames/rtsp_record_api.py"
+        "videos/UI-May17-v16.py"
+        "videos/rtsp_record_api.py"
         "delete_except_newest.sh"
         "desktopmultiv5.sh"
         "ftpserver.py"
         "requirements.txt"
-        "rtsp_record_api.py"
-        "rtsp_record_api_old.py"
         "system_monitor.py"
         "v4l2rtspserver"
     )
@@ -175,34 +176,46 @@ main() {
     show_progress "Creating target directories..."
     
     create_directory "$HOME/Desktop/usb_raspi_package"
+    create_directory "$HOME/Desktop/usb_raspi_package_frame"
     create_directory "$HOME/Desktop/gr-robo"
     
-    # Step 6: Copy files to ~/Desktop/usb_raspi_package
+    # Step 6: Copy files to ~/Desktop/usb_raspi_package (videos folder files)
     show_progress "Copying files to ~/Desktop/usb_raspi_package..."
     
-    usb_package_files=(
-        "UI-May17-v16.py"
-        "desktopmultiv5.sh"
-        "rtsp_record_api.py"
-        "rtsp_record_api_old.py"
-        "v4l2rtspserver"
-    )
+    # Copy UI and record API from videos folder
+    copy_file "videos/UI-May17-v16.py" "$HOME/Desktop/usb_raspi_package/"
+    copy_file "videos/rtsp_record_api.py" "$HOME/Desktop/usb_raspi_package/"
     
-    for file in "${usb_package_files[@]}"; do
-        copy_file "$file" "$HOME/Desktop/usb_raspi_package/"
-    done
+    # Copy other files from root
+    copy_file "desktopmultiv5.sh" "$HOME/Desktop/usb_raspi_package/"
+    copy_file "v4l2rtspserver" "$HOME/Desktop/usb_raspi_package/"
     
     # Make shell scripts executable
     make_executable "$HOME/Desktop/usb_raspi_package/desktopmultiv5.sh"
     make_executable "$HOME/Desktop/usb_raspi_package/v4l2rtspserver"
     
-    # Step 7: Copy delete_except_newest.sh to ~/Desktop
+    # Step 7: Copy files to ~/Desktop/usb_raspi_package_frame (frames folder files)
+    show_progress "Copying files to ~/Desktop/usb_raspi_package_frame..."
+    
+    # Copy UI and record API from frames folder
+    copy_file "frames/UI-May17-v16.py" "$HOME/Desktop/usb_raspi_package_frame/"
+    copy_file "frames/rtsp_record_api.py" "$HOME/Desktop/usb_raspi_package_frame/"
+    
+    # Copy other files from root
+    copy_file "desktopmultiv5.sh" "$HOME/Desktop/usb_raspi_package_frame/"
+    copy_file "v4l2rtspserver" "$HOME/Desktop/usb_raspi_package_frame/"
+    
+    # Make shell scripts executable
+    make_executable "$HOME/Desktop/usb_raspi_package_frame/desktopmultiv5.sh"
+    make_executable "$HOME/Desktop/usb_raspi_package_frame/v4l2rtspserver"
+    
+    # Step 8: Copy delete_except_newest.sh to ~/Desktop
     show_progress "Copying delete_except_newest.sh to ~/Desktop..."
     
     copy_file "delete_except_newest.sh" "$HOME/Desktop/"
     make_executable "$HOME/Desktop/delete_except_newest.sh"
     
-    # Step 8: Copy files to home directory
+    # Step 9: Copy files to home directory
     show_progress "Copying files to home directory..."
     
     home_files=(
@@ -215,7 +228,7 @@ main() {
         copy_file "$file" "$HOME/"
     done
     
-    # Step 9: Create and activate Python virtual environment
+    # Step 10: Create and activate Python virtual environment
     show_progress "Creating Python virtual environment..."
     
     if [ -d "$HOME/Desktop/gr-robo/venv" ]; then
@@ -226,7 +239,7 @@ main() {
     python3 -m venv "$HOME/Desktop/gr-robo/venv" || handle_error "Failed to create virtual environment"
     print_success "Virtual environment created"
     
-    # Step 10: Install Python packages
+    # Step 11: Install Python packages
     show_progress "Installing Python packages..."
     
     source "$HOME/Desktop/gr-robo/venv/bin/activate" || handle_error "Failed to activate virtual environment"
@@ -241,8 +254,8 @@ main() {
     
     deactivate
     
-    # Step 11: Install system packages
-    show_progress "Installing system packages..."
+    # Step 12: Install system packages and setup systemd service
+    show_progress "Installing system packages and setting up service..."
     
     print_status "Installing python3-pyftpdlib..."
     if sudo apt update && sudo apt install -y python3-pyftpdlib; then
@@ -250,9 +263,6 @@ main() {
     else
         handle_error "Failed to install python3-pyftpdlib"
     fi
-    
-    # Step 12: Setup systemd service for system monitor
-    show_progress "Setting up system monitor service..."
     
     # Create systemd service file
     SERVICE_FILE="/tmp/system-monitor.service"
@@ -308,7 +318,8 @@ EOF
     echo -e "${GREEN}===================================================${NC}"
     echo
     print_success "Files installed in the following locations:"
-    echo "  • ~/Desktop/usb_raspi_package/ - Main application files"
+    echo "  • ~/Desktop/usb_raspi_package/ - Main application files (videos version)"
+    echo "  • ~/Desktop/usb_raspi_package_frame/ - Main application files (frames version)"
     echo "  • ~/Desktop/delete_except_newest.sh - Cleanup script"
     echo "  • ~/ - FTP server, system monitor, and requirements"
     echo "  • ~/Desktop/gr-robo/venv/ - Python virtual environment"
