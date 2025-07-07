@@ -93,16 +93,16 @@ class RTSPPlayerApp:
         self.nav_frame = tk.Frame(master, pady=10)
         self.nav_frame.pack()
 
-        self.back_button = tk.Button(self.nav_frame, text="← Back Grid", command=self.previous_grid, width=20, height=2)
+        self.back_button = tk.Button(self.nav_frame, text="← Back Grid", command=self.previous_grid, width=20, height=2, font=('Arial', 16))
         self.back_button.pack(side=tk.LEFT, padx=5)
 
         self.grid_label = tk.Label(self.nav_frame, text="", font=('Arial', 12, 'bold'), bg='lightgray', padx=10, pady=5, width=20, height=2)
         self.grid_label.pack(side=tk.LEFT, padx=10)
 
-        self.forward_button = tk.Button(self.nav_frame, text="Forward Grid →", command=self.next_grid, width=20, height=2)
+        self.forward_button = tk.Button(self.nav_frame, text="Forward Grid →", command=self.next_grid, width=20, height=2, font=('Arial', 16))
         self.forward_button.pack(side=tk.LEFT, padx=5)
 
-        self.toggle_prefix_button = tk.Button(self.nav_frame, text="Toggle A/B", command=self.toggle_prefix, width=20, height=2)
+        self.toggle_prefix_button = tk.Button(self.nav_frame, text="Toggle A/B", command=self.toggle_prefix, width=20, height=2, font=('Arial', 16))
         self.toggle_prefix_button.pack(side=tk.LEFT, padx=10)
 
         # Move control frame above the camera feeds
@@ -120,7 +120,7 @@ class RTSPPlayerApp:
             bd=3,          # Border width
             padx=10,       # Horizontal padding
             pady=5,        # Vertical padding
-            font=('Arial', 10, 'bold'), width=20, height=2
+            font=('Arial', 16, 'bold'), width=20, height=2
         )
         self.toggle_streams_button.pack(side=tk.LEFT, padx=10)
 
@@ -135,7 +135,7 @@ class RTSPPlayerApp:
             bd=3,          # Border width
             padx=10,       # Horizontal padding
             pady=5,        # Vertical padding
-            font=('Arial', 10, 'bold'), width=20, height=2
+            font=('Arial', 16, 'bold'), width=20, height=2
         )
         self.toggle_record_button.pack(side=tk.LEFT, padx=10)
 

@@ -33,7 +33,7 @@ class RTSPStream:
 
             print(f"Starting recording with counter: {counter}, grid: {grid_name}")
 
-            save_dir = f"/home/{USERNAME}/Desktop/scout-videos/recordings_{CURRENT_DATE}/{grid_name}/"
+            save_dir = f"/home/{USERNAME}/Desktop/scout-videos/recordings_{CURRENT_DATE}/{grid_name}-{POSITION}/"
             os.makedirs(save_dir, exist_ok=True)
             
             # Clean up any existing files with the literal %04d pattern
