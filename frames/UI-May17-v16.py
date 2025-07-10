@@ -30,8 +30,8 @@ class CameraViewer:
         self.cameras = {}
         for idx, (ip, record_ip) in enumerate(zip(device_ips, record_api_ips), start=1):
             self.cameras[f"Camera {idx}"] = {
-                "url": f"rtsp://{ip}",
-                "rurl": f"http://{record_ip}/",
+                "url": f"{ip}",
+                "rurl": f"{record_ip}/",
                 "active": False,
             }
         print(self.cameras)
