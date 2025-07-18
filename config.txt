@@ -1,0 +1,5 @@
+resolution=1920x1080
+fps=30
+bottomcamera=1
+middlecamera=2
+topcamera=3
