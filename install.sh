@@ -161,7 +161,8 @@ main() {
         "ftpserver.py"
         "requirements.txt"
         "system_monitor.py"
-        "v4l2rtspserver"
+        "v4l2rtspserver",
+        "config.txt"
     )
     
     for file in "${required_files[@]}"; do
@@ -176,7 +177,7 @@ main() {
     show_progress "Creating target directories..."
     
     create_directory "$HOME/Desktop/usb_raspi_package"
-    create_directory "$HOME/Desktop/usb_raspi_package_frame"
+    create_directory "$HOME/Desktop/usb_raspi_package_fixedcamera_frame"
     create_directory "$HOME/Desktop/gr-robo"
     
     # Step 6: Copy files to ~/Desktop/usb_raspi_package (videos folder files)
@@ -188,32 +189,40 @@ main() {
     
     # Copy other files from root
     copy_file "desktopmultiv5.sh" "$HOME/Desktop/usb_raspi_package/"
-    copy_file "v4l2rtspserver" "$HOME/Desktop/usb_raspi_package/"
+    copy_file "" "$HOME/Desktop/usb_raspi_package/"
     
     # Make shell scripts executable
     make_executable "$HOME/Desktop/usb_raspi_package/desktopmultiv5.sh"
-    make_executable "$HOME/Desktop/usb_raspi_package/v4l2rtspserver"
+    make_executable "$HOME/Desktop/usb_raspi_package/"
     
-    # Step 7: Copy files to ~/Desktop/usb_raspi_package_frame (frames folder files)
-    show_progress "Copying files to ~/Desktop/usb_raspi_package_frame..."
+    # Step 7: Copy files to ~/Desktop/usb_raspi_package_fixedcamera_frame (frames folder files)
+    show_progress "Copying files to ~/Desktop/usb_raspi_package_fixedcamera_frame..."
     
     # Copy UI and record API from frames folder
-    copy_file "frames/UI-May17-v16.py" "$HOME/Desktop/usb_raspi_package_frame/"
-    copy_file "frames/rtsp_record_api.py" "$HOME/Desktop/usb_raspi_package_frame/"
+    copy_file "frames/UI-May17-v16.py" "$HOME/Desktop/usb_raspi_package_fixedcamera_frame/"
+    copy_file "frames/rtsp_record_api.py" "$HOME/Desktop/usb_raspi_package_fixedcamera_frame/"
     
     # Copy other files from root
-    copy_file "desktopmultiv5.sh" "$HOME/Desktop/usb_raspi_package_frame/"
-    copy_file "v4l2rtspserver" "$HOME/Desktop/usb_raspi_package_frame/"
+    copy_file "desktopmultiv5.sh" "$HOME/Desktop/usb_raspi_package_fixedcamera_frame/"
+    copy_file "v4l2rtspserver" "$HOME/Desktop/usb_raspi_package_fixedcamera_frame/"
     
     # Make shell scripts executable
-    make_executable "$HOME/Desktop/usb_raspi_package_frame/desktopmultiv5.sh"
-    make_executable "$HOME/Desktop/usb_raspi_package_frame/v4l2rtspserver"
+    make_executable "$HOME/Desktop/usb_raspi_package_fixedcamera_frame/desktopmultiv5.sh"
+    make_executable "$HOME/Desktop/usb_raspi_package_fixedcamera_frame/v4l2rtspserver"
     
     # Step 8: Copy delete_except_newest.sh to ~/Desktop
     show_progress "Copying delete_except_newest.sh to ~/Desktop..."
     
     copy_file "delete_except_newest.sh" "$HOME/Desktop/"
     make_executable "$HOME/Desktop/delete_except_newest.sh"
+
+    # Step 9: Copy config.txt to frame folder
+    show_progress "Copying config.txt to ~/Desktop/usb_raspi_package_fixedcamera_frame"
+    
+    copy_file "config.txt" "$HOME/Desktop/usb_raspi_package_fixedcamera_frame"
+
+    copy_file "config.txt" "$HOME/Desktop/usb_raspi_package"
+    
     
     # Step 9: Copy files to home directory
     show_progress "Copying files to home directory..."
@@ -319,7 +328,7 @@ EOF
     echo
     print_success "Files installed in the following locations:"
     echo "  • ~/Desktop/usb_raspi_package/ - Main application files (videos version)"
-    echo "  • ~/Desktop/usb_raspi_package_frame/ - Main application files (frames version)"
+    echo "  • ~/Desktop/usb_raspi_package_fixedcamera_frame/ - Main application files (frames version)"
     echo "  • ~/Desktop/delete_except_newest.sh - Cleanup script"
     echo "  • ~/ - FTP server, system monitor, and requirements"
     echo "  • ~/Desktop/gr-robo/venv/ - Python virtual environment"
