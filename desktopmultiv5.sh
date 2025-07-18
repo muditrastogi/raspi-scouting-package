@@ -35,8 +35,23 @@ RECORD_API_BASE_PORT=5000
 RTSP_CHECK_TIMEOUT=5
 FFPLAY_TEST_DURATION=3
 
+# Default configuration values
+DEFAULT_RESOLUTION="1920x1080"
+DEFAULT_FPS=15
+DEFAULT_BOTTOM_CAMERA=""
+DEFAULT_MIDDLE_CAMERA=""
+DEFAULT_TOP_CAMERA=""
+
+# Configuration variables
+CONFIG_RESOLUTION="$DEFAULT_RESOLUTION"
+CONFIG_FPS="$DEFAULT_FPS"
+CONFIG_BOTTOM_CAMERA="$DEFAULT_BOTTOM_CAMERA"
+CONFIG_MIDDLE_CAMERA="$DEFAULT_MIDDLE_CAMERA"
+CONFIG_TOP_CAMERA="$DEFAULT_TOP_CAMERA"
+
 # Arrays to track devices and services
 PLAYABLE_DEVICES=()
+DEVICE_SERIALS=()
 RTSP_SERVERS=()
 RECORD_APIS=()
 RTSP_PIDS=()
@@ -60,6 +75,60 @@ info_msg() {
 # Function to display warning messages
 warning_msg() {
     echo -e "\e[33mWARNING: $1\e[0m"
+}
+
+# Function to read configuration from config.txt
+read_config() {
+    local config_file="$SCRIPT_DIR/config.txt"
+    
+    if [ -f "$config_file" ]; then
+        info_msg "Reading configuration from $config_file"
+        
+        while IFS='=' read -r key value; do
+            # Skip empty lines and comments
+            [[ -z "$key" || "$key" =~ ^[[:space:]]*# ]] && continue
+            
+            # Remove whitespace
+            key=$(echo "$key" | xargs)
+            value=$(echo "$value" | xargs)
+            
+            case "$key" in
+                "resolution")
+                    CONFIG_RESOLUTION="$value"
+                    info_msg "Config: resolution=$CONFIG_RESOLUTION"
+                    ;;
+                "fps")
+                    CONFIG_FPS="$value"
+                    info_msg "Config: fps=$CONFIG_FPS"
+                    ;;
+                "bottomcamera")
+                    CONFIG_BOTTOM_CAMERA="$value"
+                    info_msg "Config: bottomcamera=$CONFIG_BOTTOM_CAMERA"
+                    ;;
+                "middlecamera")
+                    CONFIG_MIDDLE_CAMERA="$value"
+                    info_msg "Config: middlecamera=$CONFIG_MIDDLE_CAMERA"
+                    ;;
+                "topcamera")
+                    CONFIG_TOP_CAMERA="$value"
+                    info_msg "Config: topcamera=$CONFIG_TOP_CAMERA"
+                    ;;
+                *)
+                    warning_msg "Unknown config key: $key"
+                    ;;
+            esac
+        done < "$config_file"
+    else
+        warning_msg "Configuration file not found: $config_file"
+        warning_msg "Using default values: resolution=$CONFIG_RESOLUTION, fps=$CONFIG_FPS"
+    fi
+}
+
+# Function to get USB serial ID for a device
+get_device_serial() {
+    local device=$1
+    local serial=$(udevadm info --query=all --name="$device" 2>/dev/null | grep 'ID_USB_SERIAL_SHORT=' | cut -d'=' -f2)
+    echo "$serial"
 }
 
 # Function to cleanup on exit
@@ -97,6 +166,19 @@ trap cleanup EXIT INT TERM
 info_msg "Script started from: $SCRIPT_DIR"
 info_msg "Current working directory: $(pwd)"
 info_msg "PATH: $PATH"
+
+# Read configuration
+read_config
+
+# Parse resolution into width and height
+IFS='x' read -r CONFIG_WIDTH CONFIG_HEIGHT <<< "$CONFIG_RESOLUTION"
+if [ -z "$CONFIG_WIDTH" ] || [ -z "$CONFIG_HEIGHT" ]; then
+    warning_msg "Invalid resolution format: $CONFIG_RESOLUTION. Using default 1920x1080"
+    CONFIG_WIDTH=1920
+    CONFIG_HEIGHT=1080
+fi
+
+info_msg "Using resolution: ${CONFIG_WIDTH}x${CONFIG_HEIGHT}, FPS: $CONFIG_FPS"
 
 # Check if v4l2rtspserver is installed
 if ! command -v ./v4l2rtspserver &> /dev/null; then
@@ -185,6 +267,10 @@ test_device_playability() {
 detect_cameras() {
     info_msg "Detecting available USB cameras..."
     
+    # Temporary arrays to store devices with their serials
+    local temp_devices=()
+    local temp_serials=()
+    
     for dev in /dev/video*; do 
         if [ -e "$dev" ]; then
             # Use your original approach: check USB device and test playability in one go
@@ -194,15 +280,19 @@ detect_cameras() {
                     # Test playability using your approach
                     if [ "$HAS_FFPLAY" = true ]; then
                         if ! timeout 3s ffplay -f v4l2 -i "$dev" -t 1 -nodisp -loglevel error 2>&1 | grep -q "Inappropriate ioctl for device"; then
-                            PLAYABLE_DEVICES+=("$dev")
-                            success_msg "Found playable camera: $dev"
+                            local serial=$(get_device_serial "$dev")
+                            temp_devices+=("$dev")
+                            temp_serials+=("$serial")
+                            success_msg "Found playable camera: $dev (Serial: $serial)"
                         else
                             warning_msg "Device $dev failed playability test (Inappropriate ioctl for device)"
                         fi
                     else
                         # If ffplay is not available, assume device is playable if v4l2-ctl works
-                        warning_msg "ffplay not available, assuming $dev is playable based on v4l2-ctl test"
-                        PLAYABLE_DEVICES+=("$dev")
+                        local serial=$(get_device_serial "$dev")
+                        temp_devices+=("$dev")
+                        temp_serials+=("$serial")
+                        warning_msg "ffplay not available, assuming $dev is playable based on v4l2-ctl test (Serial: $serial)"
                     fi
                 else
                     warning_msg "Device $dev is not accessible with v4l2-ctl"
@@ -213,14 +303,64 @@ detect_cameras() {
         fi
     done
     
-    if [ ${#PLAYABLE_DEVICES[@]} -eq 0 ]; then
+    if [ ${#temp_devices[@]} -eq 0 ]; then
         show_error "No playable USB cameras detected."
         show_error "Make sure your cameras are connected and recognized by the system."
         show_error "You can check with: ls -la /dev/video* && v4l2-ctl --list-devices"
         exit 1
     fi
     
+    # Order devices based on configuration (bottom, middle, top)
+    order_cameras_by_config temp_devices temp_serials
+    
     success_msg "Found ${#PLAYABLE_DEVICES[@]} playable camera device(s): ${PLAYABLE_DEVICES[*]}"
+    success_msg "Camera order based on config: ${DEVICE_SERIALS[*]}"
+}
+
+# Function to order cameras based on configuration
+order_cameras_by_config() {
+    local -n devices_ref=$1
+    local -n serials_ref=$2
+    
+    info_msg "Ordering cameras based on configuration..."
+    
+    # Define the desired order: bottom, middle, top
+    local desired_order=("$CONFIG_BOTTOM_CAMERA" "$CONFIG_MIDDLE_CAMERA" "$CONFIG_TOP_CAMERA")
+    
+    # First, add cameras in the specified order
+    for target_serial in "${desired_order[@]}"; do
+        if [ -n "$target_serial" ]; then
+            for i in "${!serials_ref[@]}"; do
+                if [ "${serials_ref[$i]}" = "$target_serial" ]; then
+                    PLAYABLE_DEVICES+=("${devices_ref[$i]}")
+                    DEVICE_SERIALS+=("${serials_ref[$i]}")
+                    info_msg "Added camera ${devices_ref[$i]} (Serial: ${serials_ref[$i]}) in configured order"
+                    break
+                fi
+            done
+        fi
+    done
+    
+    # Then add any remaining cameras that weren't in the config
+    for i in "${!devices_ref[@]}"; do
+        local device="${devices_ref[$i]}"
+        local serial="${serials_ref[$i]}"
+        local found=false
+        
+        # Check if this device is already in our ordered list
+        for existing_device in "${PLAYABLE_DEVICES[@]}"; do
+            if [ "$existing_device" = "$device" ]; then
+                found=true
+                break
+            fi
+        done
+        
+        if [ "$found" = false ]; then
+            PLAYABLE_DEVICES+=("$device")
+            DEVICE_SERIALS+=("$serial")
+            warning_msg "Added unconfigured camera $device (Serial: $serial) at the end"
+        fi
+    done
 }
 
 # Function to start RTSP server for a camera using v4l2rtspserver
@@ -237,8 +377,8 @@ start_rtsp_server() {
         # Ensure log directory exists
         mkdir -p "$(dirname "$log_file")"
         
-        # Start v4l2rtspserver in background with explicit options
-        ./v4l2rtspserver -P "$port" -W 1920 -H 1080 -F 15 "$camera_dev" > "$log_file" 2>&1 &
+        # Start v4l2rtspserver in background with configuration values
+        ./v4l2rtspserver -P "$port" -W "$CONFIG_WIDTH" -H "$CONFIG_HEIGHT" -F "$CONFIG_FPS" "$camera_dev" > "$log_file" 2>&1 &
         local pid=$!
         
         # Wait a moment for startup
@@ -359,9 +499,14 @@ info_msg "Starting local USB camera RTSP setup..."
 # Detect and filter cameras
 detect_cameras
 
-# Start RTSP servers for each playable camera
+# Start RTSP servers for each playable camera (now in configured order)
 current_rtsp_port=$RTSP_BASE_PORT
-for camera_dev in "${PLAYABLE_DEVICES[@]}"; do
+for i in "${!PLAYABLE_DEVICES[@]}"; do
+    camera_dev="${PLAYABLE_DEVICES[$i]}"
+    camera_serial="${DEVICE_SERIALS[$i]}"
+    
+    info_msg "Processing camera $camera_dev (Serial: $camera_serial)"
+    
     if start_rtsp_server "$camera_dev" $current_rtsp_port; then
         # Wait for RTSP server to fully initialize
         info_msg "Waiting for RTSP server to initialize..."
@@ -369,14 +514,14 @@ for camera_dev in "${PLAYABLE_DEVICES[@]}"; do
         
         if check_rtsp_stream $current_rtsp_port; then
             RTSP_SERVERS+=("rtsp://localhost:${current_rtsp_port}/unicast")
-            success_msg "Device $camera_dev successfully initialized on port $current_rtsp_port"
+            success_msg "Device $camera_dev (Serial: $camera_serial) successfully initialized on port $current_rtsp_port"
         else
             warning_msg "RTSP stream not available on port $current_rtsp_port"
             # Still add it to array in case it works later
             RTSP_SERVERS+=("rtsp://localhost:$current_rtsp_port")
         fi
     else
-        show_error "Failed to start RTSP server for $camera_dev after all retry attempts"
+        show_error "Failed to start RTSP server for $camera_dev (Serial: $camera_serial) after all retry attempts"
     fi
     
     ((current_rtsp_port++))
