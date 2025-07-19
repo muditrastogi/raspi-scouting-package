@@ -166,10 +166,11 @@ main() {
     required_files=(
         "frames/UI-May17-v16.py"
         "frames/rtsp_record_api.py"
+        "frames/desktopmultiv5.sh"
         "videos/UI-May17-v16.py"
         "videos/rtsp_record_api.py"
+        "videos/desktopmultiv5.sh"
         "delete_except_newest.sh"
-        "desktopmultiv5.sh"
         "ftpserver.py"
         "requirements.txt"
         "system_monitor.py"
@@ -197,9 +198,9 @@ main() {
     # Copy UI and record API from videos folder
     copy_file "videos/UI-May17-v16.py" "$HOME/Desktop/usb_raspi_package/"
     copy_file "videos/rtsp_record_api.py" "$HOME/Desktop/usb_raspi_package/"
+    copy_file "videos/desktopmultiv5.sh" "$HOME/Desktop/usb_raspi_package/"
     
     # Copy other files from root
-    copy_file "desktopmultiv5.sh" "$HOME/Desktop/usb_raspi_package/"
     copy_file "v4l2rtspserver" "$HOME/Desktop/usb_raspi_package/"
     
     # Copy config.txt if it exists
@@ -215,9 +216,9 @@ main() {
     # Copy UI and record API from frames folder
     copy_file "frames/UI-May17-v16.py" "$HOME/Desktop/usb_raspi_package_camerafixed_frame/"
     copy_file "frames/rtsp_record_api.py" "$HOME/Desktop/usb_raspi_package_camerafixed_frame/"
+    copy_file "frames/desktopmultiv5.sh" "$HOME/Desktop/usb_raspi_package_camerafixed_frame/"
     
     # Copy other files from root
-    copy_file "desktopmultiv5.sh" "$HOME/Desktop/usb_raspi_package_camerafixed_frame/"
     copy_file "v4l2rtspserver" "$HOME/Desktop/usb_raspi_package_camerafixed_frame/"
     
     # Copy config.txt if it exists
