@@ -90,6 +90,13 @@ create_directory() {
 copy_file() {
     local src="$1"
     local dest="$2"
+    
+    # Check if source is empty
+    if [ -z "$src" ]; then
+        print_warning "Skipping empty source file"
+        return 0
+    fi
+    
     if [ -f "$src" ]; then
         cp "$src" "$dest" || handle_error "Failed to copy $src to $dest"
         print_success "Copied: $(basename "$src") -> $dest"
@@ -101,6 +108,13 @@ copy_file() {
 # Function to make file executable
 make_executable() {
     local file="$1"
+    
+    # Check if file path is empty
+    if [ -z "$file" ]; then
+        print_warning "Skipping chmod on empty file path"
+        return 0
+    fi
+    
     if [ -f "$file" ]; then
         chmod +x "$file" || handle_error "Failed to make $file executable"
         print_success "Made executable: $file"
@@ -189,11 +203,11 @@ main() {
     
     # Copy other files from root
     copy_file "desktopmultiv5.sh" "$HOME/Desktop/usb_raspi_package/"
-    copy_file "" "$HOME/Desktop/usb_raspi_package/"
+    # FIXED: Removed the empty string copy_file call
     
     # Make shell scripts executable
     make_executable "$HOME/Desktop/usb_raspi_package/desktopmultiv5.sh"
-    make_executable "$HOME/Desktop/usb_raspi_package/"
+    # FIXED: Removed the empty string make_executable call
     
     # Step 7: Copy files to ~/Desktop/usb_raspi_package_fixedcamera_frame (frames folder files)
     show_progress "Copying files to ~/Desktop/usb_raspi_package_fixedcamera_frame..."
@@ -217,14 +231,12 @@ main() {
     make_executable "$HOME/Desktop/delete_except_newest.sh"
 
     # Step 9: Copy config.txt to frame folder
-    show_progress "Copying config.txt to ~/Desktop/usb_raspi_package_fixedcamera_frame"
+    show_progress "Copying config.txt to target directories..."
     
-    copy_file "config.txt" "$HOME/Desktop/usb_raspi_package_fixedcamera_frame"
-
-    copy_file "config.txt" "$HOME/Desktop/usb_raspi_package"
+    copy_file "config.txt" "$HOME/Desktop/usb_raspi_package_fixedcamera_frame/"
+    copy_file "config.txt" "$HOME/Desktop/usb_raspi_package/"
     
-    
-    # Step 9: Copy files to home directory
+    # Step 10: Copy files to home directory
     show_progress "Copying files to home directory..."
     
     home_files=(
@@ -237,7 +249,7 @@ main() {
         copy_file "$file" "$HOME/"
     done
     
-    # Step 10: Create and activate Python virtual environment
+    # Step 11: Create and activate Python virtual environment
     show_progress "Creating Python virtual environment..."
     
     if [ -d "$HOME/Desktop/gr-robo/venv" ]; then
@@ -248,7 +260,7 @@ main() {
     python3 -m venv "$HOME/Desktop/gr-robo/venv" || handle_error "Failed to create virtual environment"
     print_success "Virtual environment created"
     
-    # Step 11: Install Python packages
+    # Step 12: Install Python packages
     show_progress "Installing Python packages..."
     
     source "$HOME/Desktop/gr-robo/venv/bin/activate" || handle_error "Failed to activate virtual environment"
@@ -263,7 +275,7 @@ main() {
     
     deactivate
     
-    # Step 12: Install system packages and setup systemd service
+    # Step 13: Install system packages and setup systemd service
     show_progress "Installing system packages and setting up service..."
     
     print_status "Installing python3-pyftpdlib..."
