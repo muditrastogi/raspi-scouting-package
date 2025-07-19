@@ -90,13 +90,6 @@ create_directory() {
 copy_file() {
     local src="$1"
     local dest="$2"
-    
-    # Check if source is empty
-    if [ -z "$src" ]; then
-        print_warning "Skipping empty source file"
-        return 0
-    fi
-    
     if [ -f "$src" ]; then
         cp "$src" "$dest" || handle_error "Failed to copy $src to $dest"
         print_success "Copied: $(basename "$src") -> $dest"
@@ -105,16 +98,21 @@ copy_file() {
     fi
 }
 
+# Function to copy file with optional handling (won't fail if file doesn't exist)
+copy_file_optional() {
+    local src="$1"
+    local dest="$2"
+    if [ -f "$src" ]; then
+        cp "$src" "$dest" || handle_error "Failed to copy $src to $dest"
+        print_success "Copied: $(basename "$src") -> $dest"
+    else
+        print_warning "Optional file not found: $src (skipping)"
+    fi
+}
+
 # Function to make file executable
 make_executable() {
     local file="$1"
-    
-    # Check if file path is empty
-    if [ -z "$file" ]; then
-        print_warning "Skipping chmod on empty file path"
-        return 0
-    fi
-    
     if [ -f "$file" ]; then
         chmod +x "$file" || handle_error "Failed to make $file executable"
         print_success "Made executable: $file"
@@ -176,7 +174,6 @@ main() {
         "requirements.txt"
         "system_monitor.py"
         "v4l2rtspserver"
-        "config.txt"
     )
     
     for file in "${required_files[@]}"; do
@@ -191,7 +188,7 @@ main() {
     show_progress "Creating target directories..."
     
     create_directory "$HOME/Desktop/usb_raspi_package"
-    create_directory "$HOME/Desktop/usb_raspi_package_fixedcamera_frame"
+    create_directory "$HOME/Desktop/usb_raspi_package_camerafixed_frame"
     create_directory "$HOME/Desktop/gr-robo"
     
     # Step 6: Copy files to ~/Desktop/usb_raspi_package (videos folder files)
@@ -203,40 +200,40 @@ main() {
     
     # Copy other files from root
     copy_file "desktopmultiv5.sh" "$HOME/Desktop/usb_raspi_package/"
-    # FIXED: Removed the empty string copy_file call
+    copy_file "v4l2rtspserver" "$HOME/Desktop/usb_raspi_package/"
+    
+    # Copy config.txt if it exists
+    copy_file_optional "config.txt" "$HOME/Desktop/usb_raspi_package/"
     
     # Make shell scripts executable
     make_executable "$HOME/Desktop/usb_raspi_package/desktopmultiv5.sh"
-    # FIXED: Removed the empty string make_executable call
+    make_executable "$HOME/Desktop/usb_raspi_package/v4l2rtspserver"
     
-    # Step 7: Copy files to ~/Desktop/usb_raspi_package_fixedcamera_frame (frames folder files)
-    show_progress "Copying files to ~/Desktop/usb_raspi_package_fixedcamera_frame..."
+    # Step 7: Copy files to ~/Desktop/usb_raspi_package_camerafixed_frame (frames folder files)
+    show_progress "Copying files to ~/Desktop/usb_raspi_package_camerafixed_frame..."
     
     # Copy UI and record API from frames folder
-    copy_file "frames/UI-May17-v16.py" "$HOME/Desktop/usb_raspi_package_fixedcamera_frame/"
-    copy_file "frames/rtsp_record_api.py" "$HOME/Desktop/usb_raspi_package_fixedcamera_frame/"
+    copy_file "frames/UI-May17-v16.py" "$HOME/Desktop/usb_raspi_package_camerafixed_frame/"
+    copy_file "frames/rtsp_record_api.py" "$HOME/Desktop/usb_raspi_package_camerafixed_frame/"
     
     # Copy other files from root
-    copy_file "desktopmultiv5.sh" "$HOME/Desktop/usb_raspi_package_fixedcamera_frame/"
-    copy_file "v4l2rtspserver" "$HOME/Desktop/usb_raspi_package_fixedcamera_frame/"
+    copy_file "desktopmultiv5.sh" "$HOME/Desktop/usb_raspi_package_camerafixed_frame/"
+    copy_file "v4l2rtspserver" "$HOME/Desktop/usb_raspi_package_camerafixed_frame/"
+    
+    # Copy config.txt if it exists
+    copy_file_optional "config.txt" "$HOME/Desktop/usb_raspi_package_camerafixed_frame/"
     
     # Make shell scripts executable
-    make_executable "$HOME/Desktop/usb_raspi_package_fixedcamera_frame/desktopmultiv5.sh"
-    make_executable "$HOME/Desktop/usb_raspi_package_fixedcamera_frame/v4l2rtspserver"
+    make_executable "$HOME/Desktop/usb_raspi_package_camerafixed_frame/desktopmultiv5.sh"
+    make_executable "$HOME/Desktop/usb_raspi_package_camerafixed_frame/v4l2rtspserver"
     
     # Step 8: Copy delete_except_newest.sh to ~/Desktop
     show_progress "Copying delete_except_newest.sh to ~/Desktop..."
     
     copy_file "delete_except_newest.sh" "$HOME/Desktop/"
     make_executable "$HOME/Desktop/delete_except_newest.sh"
-
-    # Step 9: Copy config.txt to frame folder
-    show_progress "Copying config.txt to target directories..."
     
-    copy_file "config.txt" "$HOME/Desktop/usb_raspi_package_fixedcamera_frame/"
-    copy_file "config.txt" "$HOME/Desktop/usb_raspi_package/"
-    
-    # Step 10: Copy files to home directory
+    # Step 9: Copy files to home directory
     show_progress "Copying files to home directory..."
     
     home_files=(
@@ -249,7 +246,7 @@ main() {
         copy_file "$file" "$HOME/"
     done
     
-    # Step 11: Create and activate Python virtual environment
+    # Step 10: Create and activate Python virtual environment
     show_progress "Creating Python virtual environment..."
     
     if [ -d "$HOME/Desktop/gr-robo/venv" ]; then
@@ -260,7 +257,7 @@ main() {
     python3 -m venv "$HOME/Desktop/gr-robo/venv" || handle_error "Failed to create virtual environment"
     print_success "Virtual environment created"
     
-    # Step 12: Install Python packages
+    # Step 11: Install Python packages
     show_progress "Installing Python packages..."
     
     source "$HOME/Desktop/gr-robo/venv/bin/activate" || handle_error "Failed to activate virtual environment"
@@ -275,7 +272,7 @@ main() {
     
     deactivate
     
-    # Step 13: Install system packages and setup systemd service
+    # Step 12: Install system packages and setup systemd service
     show_progress "Installing system packages and setting up service..."
     
     print_status "Installing python3-pyftpdlib..."
@@ -340,7 +337,7 @@ EOF
     echo
     print_success "Files installed in the following locations:"
     echo "  • ~/Desktop/usb_raspi_package/ - Main application files (videos version)"
-    echo "  • ~/Desktop/usb_raspi_package_fixedcamera_frame/ - Main application files (frames version)"
+    echo "  • ~/Desktop/usb_raspi_package_camerafixed_frame/ - Main application files (frames version)"
     echo "  • ~/Desktop/delete_except_newest.sh - Cleanup script"
     echo "  • ~/ - FTP server, system monitor, and requirements"
     echo "  • ~/Desktop/gr-robo/venv/ - Python virtual environment"
