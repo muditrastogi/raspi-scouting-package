@@ -161,7 +161,7 @@ main() {
         "ftpserver.py"
         "requirements.txt"
         "system_monitor.py"
-        "v4l2rtspserver",
+        "v4l2rtspserver"
         "config.txt"
     )
     
