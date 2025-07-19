@@ -203,8 +203,7 @@ main() {
     # Copy other files from root
     copy_file "v4l2rtspserver" "$HOME/Desktop/usb_raspi_package/"
     
-    # Copy config.txt if it exists
-    copy_file_optional "config.txt" "$HOME/Desktop/usb_raspi_package/"
+
     
     # Make shell scripts executable
     make_executable "$HOME/Desktop/usb_raspi_package/desktopmultiv5.sh"
