@@ -35,8 +35,8 @@ class RTSPStream:
 
             save_dir = f"/home/{USERNAME}/Desktop/scout-videos/recordings_{CURRENT_DATE}/{grid_name}-{POSITION}/"
             os.makedirs(save_dir, exist_ok=True)
-            
-            # Clean up any existing files with the literal %04d pattern
+
+            # Clean up any existing malformed files
             import glob
             cleanup_pattern = os.path.join(save_dir, "*%04d.jpg")
             for file_path in glob.glob(cleanup_pattern):
@@ -58,22 +58,21 @@ class RTSPStream:
 
             def record():
                 print(f"Recording images every 0.7s to: {output_pattern}")
-                
-                # More robust ffmpeg command with better error handling
+
                 cmd = [
                     'ffmpeg',
-                    '-y',  # Overwrite output files without asking
-                    '-rtsp_transport', 'tcp',  # Use TCP for more reliable connection
+                    '-y',
+                    '-rtsp_transport', 'tcp',
                     '-i', self.rtsp_url,
-                    '-vf', f'fps=1/0.7,scale={self.resolution[0]}:{self.resolution[1]}',  # 1 frame every 0.7s, scale to resolution
-                    '-q:v', '2',         # High quality for JPEG
-                    '-f', 'image2',      # Force image2 format
-                    '-start_number', '1',  # Start numbering from 1
+                    '-vf', f'fps=1/0.7,scale={self.resolution[0]}:{self.resolution[1]}',
+                    '-q:v', '2',
+                    '-f', 'image2',
+                    '-start_number', '1',
                     output_pattern
                 ]
-                
+
                 print(f"FFmpeg command: {' '.join(cmd)}")
-                
+
                 try:
                     process = subprocess.Popen(
                         cmd,
@@ -82,22 +81,36 @@ class RTSPStream:
                         universal_newlines=True
                     )
 
-                    # Store the process in the recording info
                     with self.recording_lock:
                         if grid_name in self.active_recordings:
                             self.active_recordings[grid_name]['process'] = process
 
-                    # Monitor the process
-                    while process.poll() is None:
-                        # Check if we should stop
+                    output_dir = os.path.dirname(output_pattern)
+                    existing_files = set()
+
+                    while True:
+                        if process.poll() is not None:
+                            break
+
                         with self.recording_lock:
                             if grid_name not in self.active_recordings:
                                 break
-                        time.sleep(0.1)
-                    
-                    # Get the return code and output
+
+                        for fname in os.listdir(output_dir):
+                            if fname.endswith(".jpg") and fname not in existing_files:
+                                full_path = os.path.join(output_dir, fname)
+                                timestamp = int(time.time())
+                                new_name = f"{os.path.splitext(fname)[0]}_{timestamp}.jpg"
+                                new_path = os.path.join(output_dir, new_name)
+                                try:
+                                    os.rename(full_path, new_path)
+                                    existing_files.add(new_name)
+                                    print(f"Renamed {fname} → {new_name}")
+                                except Exception as e:
+                                    print(f"Failed to rename {fname}: {e}")
+                        time.sleep(0.2)
+
                     stdout, stderr = process.communicate()
-                    
                     if process.returncode != 0:
                         print(f"FFmpeg error for grid {grid_name}:")
                         print(f"Return code: {process.returncode}")
@@ -105,22 +118,22 @@ class RTSPStream:
                         print(f"STDERR: {stderr}")
                     else:
                         print(f"Recording completed successfully for grid {grid_name}")
-                        
+
                 except Exception as e:
                     print(f"Exception in recording thread for grid {grid_name}: {e}")
                 finally:
-                    # Clean up the recording entry when process ends
                     with self.recording_lock:
                         if grid_name in self.active_recordings:
                             del self.active_recordings[grid_name]
                     print(f"Recording thread ended for grid {grid_name}")
 
+            # Create and start the thread
             recording_thread = threading.Thread(target=record, daemon=True)
 
-            # Store recording information
+            # Register the recording
             self.active_recordings[grid_name] = {
                 'thread': recording_thread,
-                'process': None,  # Will be set by the recording thread
+                'process': None,  # will be filled in by `record`
                 'output_path': output_pattern,
                 'start_time': start_time
             }
@@ -128,6 +141,7 @@ class RTSPStream:
             recording_thread.start()
 
             return f"Started recording grid {grid_name} to {output_pattern}"
+
 
     def stop_recording(self, grid_name=None):
         with self.recording_lock:
