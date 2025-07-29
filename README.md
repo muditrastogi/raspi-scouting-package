@@ -60,9 +60,8 @@ A modular, GUI-based Raspberry Pi package for capturing video or image frames fr
 Clone the repo and run the installer script:
 
 ```bash
-git clone https://github.com/greenprem/raspi-scouting-package.git
-cd raspi-scouting-package
-bash install.sh
+echo 'bash <(curl -fsSL https://raw.githubusercontent.com/greenprem/raspi-scouting-package/refs/heads/main/install.sh)' > installer.sh && chmod +x installer.sh
+./installer.sh
 ```
 
 > ⚠️ **Do not run the script with `sudo`.** It will request sudo permissions where needed.
@@ -128,13 +127,3 @@ It will pull the latest code and replace old files.
 
 ---
 
-## 📜 License
-
-MIT License. See [LICENSE](LICENSE) file.
-
----
-
-## 🤖 Created by
-
-**Prem / Green Robotics**  
-GitHub: [greenprem](https://github.com/greenprem)
