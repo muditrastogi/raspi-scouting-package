@@ -105,7 +105,7 @@ sudo journalctl -u system-monitor.service -f  # View logs
 
 ---
 
-## 🧪 Optional: FTP Access
+## 🧪  FTP Access
 
 Start FTP server (port 21 default):
 
