@@ -103,6 +103,23 @@ sudo systemctl status system-monitor.service
 sudo journalctl -u system-monitor.service -f  # View logs
 ```
 
+
+## 🔧 Config file for desktopmultiv5.sh 
+
+config.tct contains camera recording parameters
+bottomcamera, middlecamera, topcamera are the parameters for serial id of camera that is needed for the automatic camera order to function
+A serial Id can be fetched using (assumes a single camera is connected to the raspi, since it returns the id of first camera connected)
+```bash 
+devadm info --query=all --name=/dev/video0 | awk -F= '/ID_SERIAL_SHORT/ {print $2}'
+```
+```bash
+resolution=1920x1080
+fps=30
+bottomcamera=1
+middlecamera=2
+topcamera=3
+```
+
 ---
 
 ## 🧪  FTP Access
