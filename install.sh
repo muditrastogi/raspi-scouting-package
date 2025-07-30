@@ -175,6 +175,7 @@ main() {
         "requirements.txt"
         "system_monitor.py"
         "v4l2rtspserver"
+        "configure_cameras.sh"
     )
     
     for file in "${required_files[@]}"; do
@@ -202,12 +203,13 @@ main() {
     
     # Copy other files from root
     copy_file "v4l2rtspserver" "$HOME/Desktop/usb_raspi_package/"
-    
+    copy_file "configure_cameras.sh" "$HOME/Desktop/usb_raspi_package/"
 
     
     # Make shell scripts executable
     make_executable "$HOME/Desktop/usb_raspi_package/desktopmultiv5.sh"
     make_executable "$HOME/Desktop/usb_raspi_package/v4l2rtspserver"
+    make_executable "$HOME/Desktop/usb_raspi_package/configure_cameras.sh"
     
     # Step 7: Copy files to ~/Desktop/usb_raspi_package_camerafixed_frame (frames folder files)
     show_progress "Copying files to ~/Desktop/usb_raspi_package_camerafixed_frame..."
@@ -219,6 +221,7 @@ main() {
     
     # Copy other files from root
     copy_file "v4l2rtspserver" "$HOME/Desktop/usb_raspi_package_camerafixed_frame/"
+    copy_file "configure_cameras.sh" "$HOME/Desktop/usb_raspi_package_camerafixed_frame/"
     
     # Copy config.txt if it exists
     copy_file_optional "config.txt" "$HOME/Desktop/usb_raspi_package_camerafixed_frame/"
@@ -226,12 +229,15 @@ main() {
     # Make shell scripts executable
     make_executable "$HOME/Desktop/usb_raspi_package_camerafixed_frame/desktopmultiv5.sh"
     make_executable "$HOME/Desktop/usb_raspi_package_camerafixed_frame/v4l2rtspserver"
+    make_executable "$HOME/Desktop/usb_raspi_package_camerafixed_frame/configure_cameras.sh"
     
-    # Step 8: Copy delete_except_newest.sh to ~/Desktop
-    show_progress "Copying delete_except_newest.sh to ~/Desktop..."
+    # Step 8: Copy utility scripts to ~/Desktop
+    show_progress "Copying utility scripts to ~/Desktop..."
     
     copy_file "delete_except_newest.sh" "$HOME/Desktop/"
+    copy_file "configure_cameras.sh" "$HOME/Desktop/"
     make_executable "$HOME/Desktop/delete_except_newest.sh"
+    make_executable "$HOME/Desktop/configure_cameras.sh"
     
     # Step 9: Copy files to home directory
     show_progress "Copying files to home directory..."
@@ -339,6 +345,7 @@ EOF
     echo "  • ~/Desktop/usb_raspi_package/ - Main application files (videos version)"
     echo "  • ~/Desktop/usb_raspi_package_camerafixed_frame/ - Main application files (frames version)"
     echo "  • ~/Desktop/delete_except_newest.sh - Cleanup script"
+    echo "  • ~/Desktop/configure_cameras.sh - Camera configuration script"
     echo "  • ~/ - FTP server, system monitor, and requirements"
     echo "  • ~/Desktop/gr-robo/venv/ - Python virtual environment"
     echo
@@ -346,8 +353,15 @@ EOF
     echo "  • Status: sudo systemctl status system-monitor.service"
     echo "  • Logs: sudo journalctl -u system-monitor.service -f"
     echo
+    print_success "Camera configuration script is ready to use"
+    echo "  • Configure cameras: ~/Desktop/configure_cameras.sh"
+    echo "  • Or from package directories: ./configure_cameras.sh"
+    echo
     print_status "To check service status run:"
     echo "  sudo systemctl status system-monitor.service"
+    echo
+    print_status "To configure cameras for automatic ordering, run:"
+    echo "  ~/Desktop/configure_cameras.sh"
     echo
     print_status "To update the installation, simply run this script again."
 }
