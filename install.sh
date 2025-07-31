@@ -234,7 +234,7 @@ main() {
     # Step 8: Copy utility scripts to ~/Desktop
     show_progress "Copying utility scripts to ~/Desktop..."
     
-    copy_file "delete_except_newest.sh" "$HOME/Desktop/"
+    # copy_file "delete_except_newest.sh" "$HOME/Desktop/"
     copy_file "configure_cameras.sh" "$HOME/Desktop/"
     make_executable "$HOME/Desktop/delete_except_newest.sh"
     make_executable "$HOME/Desktop/configure_cameras.sh"
