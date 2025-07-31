@@ -175,7 +175,6 @@ main() {
         "requirements.txt"
         "system_monitor.py"
         "v4l2rtspserver"
-        "configure_cameras.sh"
     )
     
     for file in "${required_files[@]}"; do
