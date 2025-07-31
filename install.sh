@@ -17,7 +17,7 @@ TOTAL_STEPS=12
 CURRENT_STEP=0
 
 # Repository URL
-REPO_URL="https://github.com/greenprem/raspi-scouting-package"
+REPO_URL="https://github.com/muditrastogi/raspi-scouting-package"
 TEMP_DIR="/tmp/raspi-scouting-install"
 
 # Function to print colored output
@@ -175,6 +175,7 @@ main() {
         "requirements.txt"
         "system_monitor.py"
         "v4l2rtspserver"
+        "configure_cameras.sh"
     )
     
     for file in "${required_files[@]}"; do
