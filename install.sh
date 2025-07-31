@@ -189,7 +189,7 @@ main() {
     # Step 5: Create target directories
     show_progress "Creating target directories..."
     
-    create_directory "$HOME/Desktop/usb_raspi_package"
+    # create_directory "$HOME/Desktop/usb_raspi_package"
     create_directory "$HOME/Desktop/usb_raspi_package_camerafixed_frame"
     create_directory "$HOME/Desktop/gr-robo"
     
@@ -197,19 +197,19 @@ main() {
     show_progress "Copying files to ~/Desktop/usb_raspi_package..."
     
     # Copy UI and record API from videos folder
-    copy_file "videos/UI-May17-v16.py" "$HOME/Desktop/usb_raspi_package/"
-    copy_file "videos/rtsp_record_api.py" "$HOME/Desktop/usb_raspi_package/"
-    copy_file "videos/desktopmultiv5.sh" "$HOME/Desktop/usb_raspi_package/"
+    # copy_file "videos/UI-May17-v16.py" "$HOME/Desktop/usb_raspi_package/"
+    # copy_file "videos/rtsp_record_api.py" "$HOME/Desktop/usb_raspi_package/"
+    # copy_file "videos/desktopmultiv5.sh" "$HOME/Desktop/usb_raspi_package/"
     
     # Copy other files from root
-    copy_file "v4l2rtspserver" "$HOME/Desktop/usb_raspi_package/"
-    copy_file "configure_cameras.sh" "$HOME/Desktop/usb_raspi_package/"
+    # copy_file "v4l2rtspserver" "$HOME/Desktop/usb_raspi_package/"
+    # copy_file "configure_cameras.sh" "$HOME/Desktop/usb_raspi_package/"
 
     
     # Make shell scripts executable
-    make_executable "$HOME/Desktop/usb_raspi_package/desktopmultiv5.sh"
-    make_executable "$HOME/Desktop/usb_raspi_package/v4l2rtspserver"
-    make_executable "$HOME/Desktop/usb_raspi_package/configure_cameras.sh"
+    # make_executable "$HOME/Desktop/usb_raspi_package/desktopmultiv5.sh"
+    # make_executable "$HOME/Desktop/usb_raspi_package/v4l2rtspserver"
+    # make_executable "$HOME/Desktop/usb_raspi_package/configure_cameras.sh"
     
     # Step 7: Copy files to ~/Desktop/usb_raspi_package_camerafixed_frame (frames folder files)
     show_progress "Copying files to ~/Desktop/usb_raspi_package_camerafixed_frame..."
@@ -235,9 +235,9 @@ main() {
     show_progress "Copying utility scripts to ~/Desktop..."
     
     # copy_file "delete_except_newest.sh" "$HOME/Desktop/"
-    copy_file "configure_cameras.sh" "$HOME/Desktop/"
-    make_executable "$HOME/Desktop/delete_except_newest.sh"
-    make_executable "$HOME/Desktop/configure_cameras.sh"
+    # copy_file "configure_cameras.sh" "$HOME/Desktop/"
+    # make_executable "$HOME/Desktop/delete_except_newest.sh"
+    # make_executable "$HOME/Desktop/configure_cameras.sh"
     
     # Step 9: Copy files to home directory
     show_progress "Copying files to home directory..."
