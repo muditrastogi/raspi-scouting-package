@@ -1,0 +1,66 @@
+[cameras]
+# Video resolution (width x height)
+resolution=1920x1080
+
+# Frame rate (frames per second)
+fps=30
+
+# Camera serial numbers or device IDs for automatic ordering
+# Leave empty if not configuring automatic order
+# These will be populated by the camera configuration script
+bottomcamera=
+middlecamera=
+topcamera=
+
+[recording]
+# Recording quality (lower = higher quality, range: 18-28)
+crf=23
+
+# Recording format
+format=mp4
+
+# Audio recording (true/false)
+audio=false
+
+[network]
+# RTSP base port for camera streams
+rtsp_base_port=8554
+
+# Recording API port
+record_api_port=5000
+
+# FTP server port
+ftp_port=21
+
+# FTP credentials
+ftp_username=pirecorder
+ftp_password=recorderpi
+
+[storage]
+# Video storage directory (relative to Desktop)
+video_dir=scout-videos
+
+# Log storage directory (relative to Desktop)
+log_dir=systemlogs
+
+# Maximum disk usage percentage before cleanup warning
+max_disk_usage=90
+
+# Days to keep old recordings (0 = keep forever)
+retention_days=30
+
+[system]
+# System monitoring interval (seconds)
+monitor_interval=30
+
+# CPU usage threshold for warnings (%)
+cpu_threshold=80
+
+# Memory usage threshold for warnings (%)
+memory_threshold=80
+
+# Enable automatic cleanup (true/false)
+auto_cleanup=true
+
+# Cleanup interval (hours)
+cleanup_interval=24
