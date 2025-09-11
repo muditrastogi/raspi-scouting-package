@@ -3,3 +3,7 @@ fps=15
 bottomcamera=2430AP0JP9R8
 middlecamera=2430AP0JP398
 topcamera=2431AP03VQV8
+# Windows camera device IDs (for Windows systems)
+bottomcamera_deviceid=USB\VID_046D&PID_0825\42359210
+middlecamera_deviceid=USB\VID_046D&PID_0825\42359210
+topcamera_deviceid=USB\VID_046D&PID_0825\42359210
