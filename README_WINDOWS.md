@@ -1,6 +1,6 @@
 # Raspberry Pi Scouting Package - Windows Edition
 
-Windows-compatible version of the Raspberry Pi Scouting Package with USB camera support and automated setup.
+Clean, simplified Windows camera application for multi-camera recording and streaming. Focused on USB camera support with automated setup and user-friendly interface.
 
 ## 🎯 What This Is
 
