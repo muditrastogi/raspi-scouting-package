@@ -8,6 +8,7 @@ from datetime import datetime
 import getpass
 import logging
 import subprocess
+from PIL import Image, ImageTk
 
 # Configure logging to reduce NVIDIA warnings
 logging.basicConfig(level=logging.ERROR)
@@ -22,12 +23,18 @@ camera_delay = 1.5  # Delay between camera initializations to avoid conflicts
 # Configuration management
 def read_config_file():
     """Read configuration from config.txt"""
-    config = {}
+    config = {
+        # Default values for recording configuration
+        'recording_mode': 'image',  # 'image' or 'video'
+        'frame_interval': '10',     # Save every Nth frame for images
+        'image_format': 'png'       # Image format: 'png', 'jpg', etc.
+    }
     script_dir = os.path.dirname(os.path.abspath(__file__))
     config_file = os.path.join(script_dir, "config.txt")
     
     if not os.path.exists(config_file):
         print(f"⚠️ Config file not found: {config_file}")
+        print(f"📝 Using default recording mode: {config['recording_mode']}")
         return config
     
     try:
@@ -38,6 +45,10 @@ def read_config_file():
                     key, value = line.split('=', 1)
                     config[key.strip()] = value.strip()
         print(f"✅ Configuration loaded from {config_file}")
+        print(f"📝 Recording mode: {config.get('recording_mode', 'image')}")
+        if config.get('recording_mode', 'image') == 'image':
+            print(f"📸 Frame interval: {config.get('frame_interval', '10')}")
+            print(f"🖼️ Image format: {config.get('image_format', 'png')}")
     except Exception as e:
         print(f"❌ Error reading config file: {e}")
     
@@ -47,6 +58,11 @@ def get_usb_camera_device_mapping():
     """Get mapping of USB camera device IDs to camera indices using wmic"""
     try:
         cmd = ['wmic', 'path', 'Win32_PnPEntity', 'where', 'Description like "%Camera%" AND DeviceID like "USB%"', 'get', 'DeviceID']
+        cmd = [
+            'wmic', 'path', 'Win32_PnPEntity',
+            'where', '(Name like "%B525%" OR Name like "%Logi%") AND PNPClass="MEDIA"',
+            'get', 'DeviceID,Name,PNPClass'
+        ]
         result = subprocess.run(cmd, capture_output=True, text=True, shell=True)
         
         if result.returncode != 0:
@@ -232,6 +248,11 @@ class SimpleStream:
         # Recording variables
         self.recording_thread = None
         self.recording_filename = None
+        
+        # Image recording variables
+        self.image_frame_counter = 0
+        self.saved_image_count = 0
+        self.recording_config = read_config_file()
 
         # Main container
         self.container = tk.Frame(parent, bg='lightgray', relief='solid', bd=1)
@@ -428,7 +449,6 @@ class SimpleStream:
                     frame_resized = cv2.resize(frame_rgb, (self.width, self.height))
 
                     # Convert to PhotoImage for Tkinter
-                    from PIL import Image, ImageTk
                     img = Image.fromarray(frame_resized)
                     photo = ImageTk.PhotoImage(image=img)
 
@@ -502,7 +522,7 @@ class SimpleStream:
             self.individual_button.config(text=text, bg=bg, fg=fg, relief=relief)
 
     def start_recording(self, grid_name, counter):
-        """Start recording directly to file"""
+        """Start recording directly to file (video or images based on config)"""
         if not self.stream_running:
             print(f"Cannot record {self.camera_label} - stream not running")
             return
@@ -512,7 +532,21 @@ class SimpleStream:
             return
 
         self.recording = True
+        
+        # Reset counters for image recording
+        self.image_frame_counter = 0
+        self.saved_image_count = 0
+        
+        # Get recording mode from config
+        recording_mode = self.recording_config.get('recording_mode', 'image').lower()
+        
+        if recording_mode == 'video':
+            self._start_video_recording(grid_name, counter)
+        else:
+            self._start_image_recording(grid_name, counter)
 
+    def _start_video_recording(self, grid_name, counter):
+        """Start video recording"""
         def record_worker():
             try:
                 # Create output directory
@@ -538,7 +572,7 @@ class SimpleStream:
                     self.recording = False
                     return
 
-                print(f"Started recording {self.camera_label} to: {filename}")
+                print(f"📹 Started video recording {self.camera_label} to: {filename}")
 
                 frame_count = 0
                 start_time = time.time()
@@ -553,18 +587,77 @@ class SimpleStream:
                         if frame_count % 100 == 0:
                             elapsed = time.time() - start_time
                             fps_actual = frame_count / elapsed
-                            print(".1f")
+                            print(f"📹 {self.camera_label}: {frame_count} frames, {fps_actual:.1f} FPS")
 
                     time.sleep(0.01)  # Small delay
 
-                print(f"Recording stopped for {self.camera_label}. Frames: {frame_count}")
+                print(f"📹 Video recording stopped for {self.camera_label}. Frames: {frame_count}")
 
             except Exception as e:
-                print(f"Error recording {self.camera_label}: {e}")
+                print(f"❌ Error recording video {self.camera_label}: {e}")
             finally:
                 if self.recorder:
                     self.recorder.release()
                     self.recorder = None
+                self.recording = False
+
+        self.recording_thread = threading.Thread(target=record_worker, daemon=True)
+        self.recording_thread.start()
+
+    def _start_image_recording(self, grid_name, counter):
+        """Start image recording"""
+        def record_worker():
+            try:
+                # Create output directory
+                output_dir = f"C:\\Users\\{getpass.getuser()}\\Desktop\\scout-images\\recordings_{datetime.now().strftime('%Y-%m-%d')}\\{grid_name}-{self.camera_label}\\"
+                os.makedirs(output_dir, exist_ok=True)
+
+                # Get configuration
+                frame_interval = int(self.recording_config.get('frame_interval', '10'))
+                image_format = self.recording_config.get('image_format', 'png').lower()
+                
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                print(f"📸 Started image recording {self.camera_label} to: {output_dir}")
+                print(f"📸 Saving every {frame_interval} frames as {image_format.upper()} images")
+
+                frame_count = 0
+                start_time = time.time()
+
+                while self.recording and self.stream_running:
+                    ret, frame = self.cap.read()
+                    if ret:
+                        self.image_frame_counter += 1
+                        
+                        # Save frame every N frames
+                        if self.image_frame_counter % frame_interval == 0:
+                            image_filename = f"{output_dir}ABC_GRID_{grid_name}_{counter}_{timestamp}_{self.camera_label}_frame_{self.saved_image_count:06d}.{image_format}"
+                            
+                            # Convert BGR to RGB for saving
+                            if image_format.lower() in ['png', 'jpg', 'jpeg']:
+                                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                                img = Image.fromarray(frame_rgb)
+                                img.save(image_filename)
+                            else:
+                                # Use OpenCV for other formats
+                                cv2.imwrite(image_filename, frame)
+                            
+                            self.saved_image_count += 1
+                            
+                            # Log progress every 10 saved images
+                            if self.saved_image_count % 10 == 0:
+                                elapsed = time.time() - start_time
+                                fps_actual = self.image_frame_counter / elapsed
+                                print(f"📸 {self.camera_label}: {self.saved_image_count} images saved, {fps_actual:.1f} FPS")
+
+                        frame_count += 1
+
+                    time.sleep(0.01)  # Small delay
+
+                print(f"📸 Image recording stopped for {self.camera_label}. Total frames: {frame_count}, Images saved: {self.saved_image_count}")
+
+            except Exception as e:
+                print(f"❌ Error recording images {self.camera_label}: {e}")
+            finally:
                 self.recording = False
 
         self.recording_thread = threading.Thread(target=record_worker, daemon=True)
@@ -608,6 +701,10 @@ class SimplePlayerApp:
         self.current_prefix = 'A'
         self.recording_enabled = False
         self.currently_recording_grid = None
+        
+        # Load recording configuration
+        self.recording_config = read_config_file()
+        self.recording_mode = self.recording_config.get('recording_mode', 'image').lower()
 
         # UI Setup
         self._create_ui()
@@ -644,6 +741,22 @@ class SimplePlayerApp:
         self.toggle_prefix_button = tk.Button(nav, text="Toggle A/B", command=self.toggle_prefix, font=('Arial', 10), width=12)
         self.toggle_prefix_button.pack(side=tk.LEFT, padx=10)
 
+        # Recording mode info
+        info = tk.Frame(self.master, pady=4)
+        info.pack(fill=tk.X, padx=20)
+        
+        mode_text = f"Recording Mode: {self.recording_mode.upper()}"
+        if self.recording_mode == 'image':
+            frame_interval = self.recording_config.get('frame_interval', '10')
+            image_format = self.recording_config.get('image_format', 'png').upper()
+            mode_text += f" | Frame Interval: {frame_interval} | Format: {image_format}"
+        
+        self.mode_label = tk.Label(
+            info, text=mode_text, font=('Arial', 10), bg='lightyellow', 
+            relief='solid', bd=1, padx=10, pady=4
+        )
+        self.mode_label.pack(side=tk.LEFT)
+
         # Control buttons
         ctrl = tk.Frame(self.master, pady=8)
         ctrl.pack(fill=tk.X, padx=20)
@@ -654,8 +767,10 @@ class SimplePlayerApp:
         )
         self.toggle_streams_button.pack(side=tk.LEFT, padx=10)
 
+        # Dynamic recording button text based on mode
+        record_text = f"Start Recording All ({'Images' if self.recording_mode == 'image' else 'Video'})"
         self.toggle_record_button = tk.Button(
-            ctrl, text="Start Recording All", command=self.toggle_recording,
+            ctrl, text=record_text, command=self.toggle_recording,
             bg='#f0f0f0', fg='black', relief='raised', bd=3, font=('Arial', 10, 'bold'), height=2
         )
         self.toggle_record_button.pack(side=tk.LEFT, padx=10)
@@ -769,17 +884,19 @@ class SimplePlayerApp:
 
     def toggle_recording(self):
         """Toggle recording on/off"""
+        mode_text = 'Images' if self.recording_mode == 'image' else 'Video'
+        
         if self.recording_enabled:
             self.stop_recording_current_grid()
             self.recording_enabled = False
             self.toggle_record_button.config(
-                text="Start Recording All",
+                text=f"Start Recording All ({mode_text})",
                 bg='#f0f0f0', fg='black', relief='raised'
             )
         else:
             self.recording_enabled = True
             self.toggle_record_button.config(
-                text="Stop Recording All",
+                text=f"Stop Recording All ({mode_text})",
                 bg='#ffcccc', fg='#cc0000', relief='sunken'
             )
             self.start_recording_current_grid()
