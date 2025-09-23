@@ -17,6 +17,13 @@ def test_wmic_camera_detection():
         # Test USB cameras only (as required by the application)
         cmd = ['wmic', 'path', 'Win32_PnPEntity', 'where', 'Description like "%Camera%" AND DeviceID like "USB%"', 'get', 'DeviceID']
         
+        cmd = [
+            'wmic', 'path', 'Win32_PnPEntity',
+            'where', '(Name like "%B525%" OR Name like "%Logi%") AND PNPClass="MEDIA"',
+            'get', 'DeviceID,Name,PNPClass'
+        ]
+
+
         print(f"📋 Running USB camera command: {' '.join(cmd)}")
         print()
         

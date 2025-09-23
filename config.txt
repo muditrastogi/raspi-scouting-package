@@ -4,6 +4,9 @@ bottomcamera=2430AP0JP9R8
 middlecamera=2430AP0JP398
 topcamera=2431AP03VQV8
 # Windows camera device IDs (for Windows systems)
-bottomcamera_deviceid=USB\VID_046D&PID_0825\42359210
-middlecamera_deviceid=USB\VID_046D&PID_0825\42359210
-topcamera_deviceid=USB\VID_046D&PID_0825\42359210
+bottomcamera_deviceid=USB\VID_046D&PID_0836&MI_00\6&1C1B1A62&0&0000  B525 HD Webcam       MEDIA
+middlecamera_deviceid=USB\VID_046D&PID_0825&MI_02\6&31B7295&0&0002   Logi C270 HD WebCam  MEDIA
+topcamera_deviceid=USB\VID_046D&PID_0825&MI_02\6&1B1F2949&0&0002  Logi C270 HD WebCam  MEDIA
+
+
+

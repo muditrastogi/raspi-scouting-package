@@ -62,6 +62,13 @@ class WindowsCameraConfig:
             # Only get USB cameras to avoid system/integrated webcams
             cmd = ['wmic', 'path', 'Win32_PnPEntity', 'where', 'Description like "%Camera%" AND DeviceID like "USB%"', 'get', 'DeviceID']
             
+            cmd = [
+                'wmic', 'path', 'Win32_PnPEntity',
+                'where', '(Name like "%B525%" OR Name like "%Logi%") AND PNPClass="MEDIA"',
+                'get', 'DeviceID,Name,PNPClass'
+            ]
+
+
             result = subprocess.run(cmd, capture_output=True, text=True, shell=True)
             
             if result.returncode != 0:
