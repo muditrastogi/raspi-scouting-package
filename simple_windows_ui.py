@@ -9,6 +9,7 @@ import getpass
 import logging
 import subprocess
 from PIL import Image, ImageTk
+from system_performance_logger import SystemPerformanceLogger
 
 # Configure logging to reduce NVIDIA warnings
 logging.basicConfig(level=logging.ERROR)
@@ -706,6 +707,12 @@ class SimplePlayerApp:
         self.recording_config = read_config_file()
         self.recording_mode = self.recording_config.get('recording_mode', 'image').lower()
 
+        # Initialize system performance logger
+        self.performance_logger = SystemPerformanceLogger(log_interval=30)
+        
+        # Setup window close handler to stop logging
+        master.protocol("WM_DELETE_WINDOW", self.on_closing)
+
         # UI Setup
         self._create_ui()
 
@@ -774,6 +781,7 @@ class SimplePlayerApp:
             bg='#f0f0f0', fg='black', relief='raised', bd=3, font=('Arial', 10, 'bold'), height=2
         )
         self.toggle_record_button.pack(side=tk.LEFT, padx=10)
+        
 
         # Center frame for streams
         center = tk.Frame(self.master)
@@ -786,6 +794,9 @@ class SimplePlayerApp:
 
         # Bottom spacer
         tk.Frame(self.master, height=20).pack(fill=tk.X)
+        
+        # Auto-start performance logging silently in background
+        self.auto_start_logging()
 
     def _layout_streams(self):
         """Arrange all 3 cameras in a single row"""
@@ -921,6 +932,33 @@ class SimplePlayerApp:
         """Stop recording specific grid"""
         for stream in self.streams:
             stream.stop_recording(grid_name)
+    
+    def auto_start_logging(self):
+        """Automatically start performance logging silently in background when application starts"""
+        try:
+            self.performance_logger.start_logging()
+            # Silent background logging - no console output during normal operation
+        except Exception as e:
+            # Only log errors, not normal status messages
+            print(f"⚠️ Could not start background performance logging: {e}")
+    
+    def on_closing(self):
+        """Handle application closing - stop logging and cleanup"""
+        try:
+            # Stop performance logging silently
+            if self.performance_logger.is_running():
+                self.performance_logger.stop_logging()
+            
+            # Stop camera streams
+            for stream in self.streams:
+                if stream.stream_running:
+                    stream.stop_stream()
+            
+        except Exception as e:
+            print(f"⚠️ Error during cleanup: {e}")
+        finally:
+            # Destroy the window
+            self.master.destroy()
 
 
 def test_all_cameras():
