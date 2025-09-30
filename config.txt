@@ -1,3 +1,5 @@
+# Camera and Recording Configuration
+[CAMERA]
 resolution=1920x1080
 fps=15
 bottomcamera=2430AP0JP9R8
@@ -7,6 +9,8 @@ topcamera=2431AP03VQV8
 bottomcamera_deviceid=USB\VID_046D&PID_0836&MI_00\6&1C1B1A62&0&0000  B525 HD Webcam       MEDIA
 middlecamera_deviceid=USB\VID_046D&PID_0825&MI_02\6&31B7295&0&0002   Logi C270 HD WebCam  MEDIA
 topcamera_deviceid=USB\VID_046D&PID_0825&MI_02\6&1B1F2949&0&0002  Logi C270 HD WebCam  MEDIA
+
+[RECORDING]
 # Recording mode configuration
 # Options: recording_mode=image or recording_mode=video
 recording_mode=image
@@ -16,7 +20,7 @@ image_format=png
 # S3 Upload Configuration
 [S3]
 # Local directory path (use forward slashes or double backslashes for Windows)
-local_dir=C:\Users\%USERNAME%\Desktop\scout-videos
+local_dir=C:\Users\mudit\Desktop\scout-videos
 # S3 bucket name (without s3:// prefix)
 s3_bucket=grai-image
 # S3 path prefix (without leading slash)

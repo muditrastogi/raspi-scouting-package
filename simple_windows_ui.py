@@ -23,28 +23,44 @@ camera_delay = 1.5  # Delay between camera initializations to avoid conflicts
 
 # Configuration management
 def read_config_file():
-    """Read configuration from config.txt"""
-    config = {
-        # Default values for recording configuration
+    """Read configuration from config.txt (INI format)"""
+    import configparser
+    
+    # Default values for recording configuration
+    default_config = {
         'recording_mode': 'image',  # 'image' or 'video'
         'frame_interval': '10',     # Save every Nth frame for images
         'image_format': 'png'       # Image format: 'png', 'jpg', etc.
     }
+    
     script_dir = os.path.dirname(os.path.abspath(__file__))
     config_file = os.path.join(script_dir, "config.txt")
     
     if not os.path.exists(config_file):
         print(f"⚠️ Config file not found: {config_file}")
-        print(f"📝 Using default recording mode: {config['recording_mode']}")
-        return config
+        print(f"📝 Using default recording mode: {default_config['recording_mode']}")
+        return default_config
     
     try:
-        with open(config_file, 'r') as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith('#') and '=' in line:
-                    key, value = line.split('=', 1)
-                    config[key.strip()] = value.strip()
+        config_parser = configparser.ConfigParser()
+        config_parser.read(config_file, encoding='utf-8')
+        
+        # Read camera configuration
+        config = {}
+        if config_parser.has_section('CAMERA'):
+            for key, value in config_parser.items('CAMERA'):
+                config[key] = value
+        
+        # Read recording configuration
+        if config_parser.has_section('RECORDING'):
+            for key, value in config_parser.items('RECORDING'):
+                config[key] = value
+        
+        # Apply defaults for missing values
+        for key, default_value in default_config.items():
+            if key not in config:
+                config[key] = default_value
+        
         print(f"✅ Configuration loaded from {config_file}")
         print(f"📝 Recording mode: {config.get('recording_mode', 'image')}")
         if config.get('recording_mode', 'image') == 'image':
@@ -52,6 +68,8 @@ def read_config_file():
             print(f"🖼️ Image format: {config.get('image_format', 'png')}")
     except Exception as e:
         print(f"❌ Error reading config file: {e}")
+        print(f"📝 Using default configuration")
+        config = default_config
     
     return config
 
@@ -124,7 +142,6 @@ def get_ordered_camera_indices():
     # Get configured device IDs for each position
     positions = ['bottom', 'middle', 'top']
     ordered_indices = []
-    used_device_ids = set()
     
     print("🔍 Mapping USB cameras based on config.txt device IDs...")
     
